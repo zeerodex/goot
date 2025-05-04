@@ -20,7 +20,7 @@ func main() {
 
 	taskService := tasks.NewTaskService(tasks.NewTaskRepository(db))
 
-	if _, err := tea.NewProgram(tui.InitAppModel(taskService)).Run(); err != nil {
+	if _, err := tea.NewProgram(tui.InitialAppModel(taskService)).Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}

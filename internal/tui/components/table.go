@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -16,6 +17,10 @@ var baseStyle = lipgloss.NewStyle().
 
 type TableModel struct {
 	table table.Model
+
+	selected int
+	method   string
+	err      error
 }
 
 func (m TableModel) Init() tea.Cmd {
@@ -53,7 +58,7 @@ func (m TableModel) View() string {
 	return baseStyle.Render(m.table.View()) + "\n"
 }
 
-func InitTableModel(s *tasks.TaskService) *TableModel {
+func InitialTableModel(service tasks.TaskService) TableModel {
 	columns := []table.Column{
 		{Title: "ID", Width: 5},
 		{Title: "Task", Width: 25},
@@ -61,10 +66,15 @@ func InitTableModel(s *tasks.TaskService) *TableModel {
 		{Title: "Status", Width: 15},
 	}
 
-	tasks, err := s.All()
+	tasks, err := service.All()
+	if len(tasks) < 1 {
+		fmt.Println("No tasks")
+		os.Exit(1)
+	}
+
 	if err != nil {
 		fmt.Println(err)
-		return nil
+		os.Exit(1)
 	}
 
 	var rows []table.Row
@@ -83,5 +93,5 @@ func InitTableModel(s *tasks.TaskService) *TableModel {
 		table.WithHeight(10), // Set the height of the table
 	)
 
-	return &TableModel{table: t}
+	return TableModel{table: t}
 }

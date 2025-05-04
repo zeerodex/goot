@@ -1,0 +1,106 @@
+// File: components/creation.go
+package components
+
+import (
+	"fmt"
+
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+type CreationModel struct {
+	TaskInput textinput.Model
+	DescInput textinput.Model
+
+	Step   int
+	Done   bool
+	Result Task
+}
+
+type Task struct {
+	Title       string
+	Description string
+}
+
+func InitialCreationModel() CreationModel {
+	taskInput := textinput.New()
+	taskInput.Focus()
+	taskInput.Placeholder = "Task"
+	taskInput.CharLimit = 156
+	taskInput.Width = 20
+
+	descInput := textinput.New()
+	descInput.Placeholder = "Description"
+	descInput.CharLimit = 156
+	descInput.Width = 40
+
+	return CreationModel{
+		TaskInput: taskInput,
+		DescInput: descInput,
+		Err:       nil,
+		Step:      1,
+	}
+}
+
+func (m CreationModel) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			return m, tea.Quit
+		case "enter":
+			if m.Step == 1 {
+				if m.TaskInput.Value() == "" {
+					m.TaskInput.Placeholder = "Task cannot be empty"
+				} else {
+					m.Step = 2
+					m.TaskInput.Blur()
+					m.DescInput.Focus()
+					return m, textinput.Blink
+				}
+			} else if m.Step == 2 {
+				m.Done = true
+
+				m.Result = Task{
+					Title:       m.TaskInput.Value(),
+					Description: m.DescInput.Value(),
+				}
+				return m, nil
+			}
+		}
+	}
+
+	switch m.Step {
+	case 1:
+		m.TaskInput, cmd = m.TaskInput.Update(msg)
+		cmds = append(cmds, cmd)
+	case 2:
+		m.DescInput, cmd = m.DescInput.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m CreationModel) View() string {
+	var s string = fmt.Sprintf(
+		"What's your task?\n\n%s",
+		m.TaskInput.View(),
+	) + "\n"
+
+	if m.Step == 2 {
+		s += fmt.Sprintf(
+			"Enter a description:\n\n%s",
+			m.DescInput.View()) + "\n\n"
+		s += "Press Enter to save"
+	}
+
+	return s
+}

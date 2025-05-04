@@ -19,7 +19,7 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) Create(task string, description string) error {
-	_, err := r.db.Exec("INSERT INTO tasks (task, description) VALUES (?, ?)", task, description)
+	_, err := r.db.Exec("INSERT INTO tasks (task, description, status) VALUES (?, ?, ?)", task, description, 0)
 	if err != nil {
 		return err
 	}
