@@ -8,6 +8,7 @@ type TaskRepository interface {
 	GetByID(id int) (*Task, error)
 	Update(fields ...string) (*Task, error)
 	DeleteByID(id int) error
+	DeleteByTitle(title string) error
 }
 
 type taskRepository struct {
@@ -19,7 +20,7 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) Create(task string, description string) error {
-	_, err := r.db.Exec("INSERT INTO tasks (task, description, status) VALUES (?, ?, ?)", task, description, 0)
+	_, err := r.db.Exec("INSERT INTO tasks (title, description, status) VALUES (?, ?, ?)", task, description, 0)
 	if err != nil {
 		return err
 	}
@@ -27,7 +28,7 @@ func (r *taskRepository) Create(task string, description string) error {
 }
 
 func (r *taskRepository) GetAll() (Tasks, error) {
-	rows, err := r.db.Query("SELECT id, task, description, status FROM tasks")
+	rows, err := r.db.Query("SELECT id, title, description, status FROM tasks")
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +50,7 @@ func (r *taskRepository) GetAll() (Tasks, error) {
 // TODO: update func
 
 func (r *taskRepository) GetByID(id int) (*Task, error) {
-	row := r.db.QueryRow("SELECT id, task, description FROM tasks WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, title, description FROM tasks WHERE id = ?", id)
 
 	task := &Task{}
 	err := row.Scan(task.ID, task.Task, task.Description)
@@ -65,6 +66,18 @@ func (r *taskRepository) Update(fields ...string) (*Task, error) {
 
 func (r *taskRepository) DeleteByID(id int) error {
 	res, err := r.db.Exec("DELETE FROM tasks WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected < 1 {
+		return err
+	}
+	return nil
+}
+
+func (r *taskRepository) DeleteByTitle(title string) error {
+	res, err := r.db.Exec("DELETE FROM tasks WHERE title = ?", title)
 	if err != nil {
 		return err
 	}

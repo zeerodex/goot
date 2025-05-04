@@ -21,7 +21,7 @@ func InitDB() (*sql.DB, error) {
 	stmt := `
 	CREATE TABLE IF NOT EXISTS tasks (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	task TEXT,
+	title TEXT,
 	description TEXT,
 	status INTEGER)`
 

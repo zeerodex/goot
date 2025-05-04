@@ -1,9 +1,7 @@
 package components
 
 import (
-	"fmt"
-	"os"
-	"strconv"
+	"errors"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,17 +16,16 @@ var baseStyle = lipgloss.NewStyle().
 type TableModel struct {
 	table table.Model
 
-	selected int
-	method   string
-	err      error
+	Selected string
+	Method   string
+	Err      error
 }
 
-func (m TableModel) Init() tea.Cmd {
-	return nil
-}
+func (m TableModel) Init() tea.Cmd { return nil }
 
 func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -44,37 +41,39 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table.MoveUp(1)
 		case "down", "j":
 			m.table.MoveDown(1)
-		case "enter":
-			return m, tea.Batch(
-				tea.Printf("Let's go to %s!", m.table.SelectedRow()[0]),
-			)
+		case "x":
+			task := m.table.SelectedRow()[0]
+			m.Method = "delete"
+			m.Selected = task
 		}
 	}
-	m.table, cmd = m.table.Update(msg)
+
 	return m, cmd
 }
 
 func (m TableModel) View() string {
+	if m.Err != nil {
+		return "No tasks!\nAny key - create task\nEsc - main menu\n"
+	}
 	return baseStyle.Render(m.table.View()) + "\n"
 }
 
-func InitialTableModel(service tasks.TaskService) TableModel {
+func InitialTableModel(repo tasks.TaskRepository) TableModel {
+	var tableModel TableModel
+
 	columns := []table.Column{
-		{Title: "ID", Width: 5},
 		{Title: "Task", Width: 25},
 		{Title: "Description", Width: 15},
 		{Title: "Status", Width: 15},
 	}
+	tableModel.Err = nil
 
-	tasks, err := service.All()
+	tasks, err := repo.GetAll()
 	if len(tasks) < 1 {
-		fmt.Println("No tasks")
-		os.Exit(1)
+		tableModel.Err = errors.New("no tasks")
 	}
-
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		tableModel.Err = err
 	}
 
 	var rows []table.Row
@@ -83,7 +82,7 @@ func InitialTableModel(service tasks.TaskService) TableModel {
 		if task.Status {
 			status = "Completed"
 		}
-		row := table.Row{strconv.Itoa(task.ID), task.Task, task.Description, status}
+		row := table.Row{task.Task, task.Description, status}
 		rows = append(rows, row)
 	}
 
@@ -92,6 +91,6 @@ func InitialTableModel(service tasks.TaskService) TableModel {
 		table.WithRows(rows),
 		table.WithHeight(10), // Set the height of the table
 	)
-
-	return TableModel{table: t}
+	tableModel.table = t
+	return tableModel
 }

@@ -37,7 +37,6 @@ func InitialCreationModel() CreationModel {
 	return CreationModel{
 		TaskInput: taskInput,
 		DescInput: descInput,
-		Err:       nil,
 		Step:      1,
 	}
 }

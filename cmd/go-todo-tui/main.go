@@ -18,9 +18,9 @@ func main() {
 	}
 	defer db.Close()
 
-	taskService := tasks.NewTaskService(tasks.NewTaskRepository(db))
+	repo := tasks.NewTaskRepository(db)
 
-	if _, err := tea.NewProgram(tui.InitialAppModel(taskService)).Run(); err != nil {
+	if _, err := tea.NewProgram(tui.InitialAppModel(repo)).Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}
