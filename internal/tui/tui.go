@@ -15,7 +15,9 @@ const (
 )
 
 type MainModel struct {
-	State         AppState
+	currentState  AppState
+	previuosState AppState
+
 	listModel     components.ListModel
 	creationModel components.CreationModel
 
@@ -30,7 +32,7 @@ func fetchTasksCmd(repo tasks.TaskRepository) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return FetchedTasksMsg{Tasks: tasks}
+		return fetchedTasksMsg{Tasks: tasks}
 	}
 }
 
@@ -54,20 +56,20 @@ func deleteTaskCmd(repo tasks.TaskRepository, title string) tea.Cmd {
 	}
 }
 
-type FetchedTasksMsg struct {
+type fetchedTasksMsg struct {
 	Tasks tasks.Tasks
 }
 
-type DeleteTaskMsg struct {
+type deleteTaskMsg struct {
 	title string
+}
+
+type createTaskMsg struct {
+	Task components.Task
 }
 
 type errMsg struct {
 	err error
-}
-
-type TaskCompletedMsg struct {
-	Task components.Task
 }
 
 func (m MainModel) Init() tea.Cmd {
@@ -80,43 +82,45 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
-			if m.State == MainView {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "q":
+			if m.currentState == MainView {
 				return m, tea.Quit
-			} else if m.State == ListView {
-				m.State = MainView
+			} else if m.currentState == ListView {
+				m.currentState = MainView
 				return m, nil
 			}
 		case "l":
-			if m.State == MainView {
-				m.State = ListView
+			if m.currentState == MainView {
+				m.currentState = ListView
 				return m, nil
 			}
 		case "c":
-			if m.State == MainView {
-				m.State = CreationView
+			if m.currentState == MainView {
+				m.currentState = CreationView
 				return m, nil
 			}
 		}
 
-	case DeleteTaskMsg:
+	case deleteTaskMsg:
 		cmds = append(cmds, deleteTaskCmd(m.repo, msg.title))
 
-	case FetchedTasksMsg:
+	case fetchedTasksMsg:
 		m.tasks = msg.Tasks
 		cmds = append(cmds, m.listModel.SetTasks(m.tasks))
 
-	case TaskCompletedMsg:
+	case createTaskMsg:
 		cmds = append(cmds, createTaskCmd(m.repo, msg.Task))
 		m.creationModel = components.InitialCreationModel()
 
-		m.State = MainView
+		m.currentState = m.previuosState
 
 	case errMsg:
 		m.err = msg.err
 	}
 
-	switch m.State {
+	switch m.currentState {
 	case ListView:
 		listModel, listCmd := m.listModel.Update(msg)
 		m.listModel = listModel.(components.ListModel)
@@ -126,8 +130,13 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			deleteTitle := m.listModel.Selected
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
-				return DeleteTaskMsg{title: deleteTitle}
+				return deleteTaskMsg{title: deleteTitle}
 			})
+		}
+		if m.listModel.Method == "create" {
+			m.listModel.Method = ""
+			m.previuosState = m.currentState
+			m.currentState = CreationView
 		}
 
 	case CreationView:
@@ -136,9 +145,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, creationCmd)
 
 		if m.creationModel.Done {
-			return m, func() tea.Msg {
-				return TaskCompletedMsg{Task: m.creationModel.Result}
-			}
+			cmds = append(cmds, func() tea.Msg {
+				return createTaskMsg{Task: m.creationModel.Result}
+			})
 		}
 	}
 
@@ -149,7 +158,7 @@ func (m MainModel) View() string {
 	if m.err != nil {
 		return m.err.Error()
 	}
-	switch m.State {
+	switch m.currentState {
 	case ListView:
 		return m.listModel.View()
 	case CreationView:
@@ -166,7 +175,7 @@ func InitialMainModel(repo tasks.TaskRepository) MainModel {
 	creationModel := components.InitialCreationModel()
 
 	m := MainModel{
-		State:         MainView,
+		currentState:  MainView,
 		listModel:     listModel,
 		creationModel: creationModel,
 

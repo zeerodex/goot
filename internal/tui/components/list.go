@@ -71,6 +71,9 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Selected = m.list.SelectedItem().(item).Title()
 			statusCmd := m.list.NewStatusMessage("Deleted " + m.Selected)
 			return m, statusCmd
+		case key.Matches(msg, m.keys.createTask):
+			m.Method = "create"
+			return m, nil
 		}
 	}
 
