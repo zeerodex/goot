@@ -20,7 +20,7 @@ func main() {
 
 	repo := tasks.NewTaskRepository(db)
 
-	if _, err := tea.NewProgram(tui.InitialAppModel(repo)).Run(); err != nil {
+	if _, err := tea.NewProgram(tui.InitialMainModel(repo)).Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}

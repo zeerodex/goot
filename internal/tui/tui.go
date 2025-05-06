@@ -1,10 +1,6 @@
 package tui
 
 import (
-	"errors"
-	"fmt"
-	"os"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
 	"github.com/zeerodex/go-todo-tui/internal/tui/components"
@@ -13,38 +9,58 @@ import (
 type AppState int
 
 const (
-	MainView     AppState = iota
-	CreationView AppState = iota
-	TableView    AppState = iota
-	ErrView      AppState = iota
+	MainView AppState = iota
+	ListView
+	CreationView
 )
 
-type AppModel struct {
+type MainModel struct {
 	State         AppState
-	tableModel    components.TableModel
+	listModel     components.ListModel
 	creationModel components.CreationModel
 
-	repo tasks.TaskRepository
-	Err  errMsg
+	tasks tasks.Tasks
+	repo  tasks.TaskRepository
+	err   error
 }
 
-type errMsg error
+func fetchTasks(repo tasks.TaskRepository) tea.Cmd {
+	return func() tea.Msg {
+		tasks, err := repo.GetAll()
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return FetchedTasksMsg{Tasks: tasks}
+	}
+}
+
+func createTaskCmd(repo tasks.TaskRepository, task components.Task) tea.Cmd {
+	return func() tea.Msg {
+		err := repo.Create(task.Title, task.Description)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return fetchTasks(repo)()
+	}
+}
+
+type FetchedTasksMsg struct {
+	Tasks tasks.Tasks
+}
+
+type errMsg struct {
+	err error
+}
 
 type TaskCompletedMsg struct {
 	Task components.Task
 }
 
-type NoTasksMsg error
-
-type TaskDeleteMsg struct {
-	id int
+func (m MainModel) Init() tea.Cmd {
+	return fetchTasks(m.repo)
 }
 
-func (m AppModel) Init() tea.Cmd {
-	return nil
-}
-
-func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -53,16 +69,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			if m.State == MainView {
 				return m, tea.Quit
-			} else if m.State == TableView {
+			} else if m.State == ListView {
 				m.State = MainView
 				return m, nil
 			}
-		case "esc":
-			m.State = MainView
-			return m, nil
-		case "t":
+		case "l":
 			if m.State == MainView {
-				m.State = TableView
+				m.State = ListView
 				return m, nil
 			}
 		case "c":
@@ -71,68 +84,26 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
-	case TaskDeleteMsg:
-		err := m.repo.DeleteByID(msg.id)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
 
-		m.tableModel = components.InitialTableModel(m.repo)
-
-		return m, nil
+	case FetchedTasksMsg:
+		m.tasks = msg.Tasks
+		cmds = append(cmds, m.listModel.SetTasks(m.tasks))
 
 	case TaskCompletedMsg:
-		err := m.repo.Create(msg.Task.Title, msg.Task.Description)
-		if err != nil {
-			return m, func() tea.Msg {
-				return err
-			}
-		}
-
-		m.tableModel = components.InitialTableModel(m.repo)
+		cmds = append(cmds, createTaskCmd(m.repo, msg.Task))
 		m.creationModel = components.InitialCreationModel()
 
 		m.State = MainView
-		return m, nil
-
-	case NoTasksMsg:
-		m.State = CreationView
-		return m, nil
 
 	case errMsg:
-		m.Err = msg
-		m.State = ErrView
-		return m, nil
+		m.err = msg.err
 	}
 
 	switch m.State {
-	case TableView:
-		tableModel, tableCmd := m.tableModel.Update(msg)
-		m.tableModel = tableModel.(components.TableModel)
-		cmds = append(cmds, tableCmd)
-
-		if m.tableModel.Err != nil {
-			if m.tableModel.Err.Error() == "no tasks" {
-				return m, func() tea.Msg {
-					return NoTasksMsg(errors.New("no tasks"))
-				}
-			}
-		}
-
-		if m.tableModel.Method == "delete" {
-			err := m.repo.DeleteByTitle(m.tableModel.Selected)
-			if err != nil {
-				return m, func() tea.Msg {
-					return errMsg(m.Err)
-				}
-			}
-
-			m.tableModel = components.InitialTableModel(m.repo)
-
-			return m, nil
-
-		}
+	case ListView:
+		listModel, listCmd := m.listModel.Update(msg)
+		m.listModel = listModel.(components.ListModel)
+		cmds = append(cmds, listCmd)
 
 	case CreationView:
 		creationModel, creationCmd := m.creationModel.Update(msg)
@@ -149,27 +120,33 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m AppModel) View() string {
+func (m MainModel) View() string {
+	if m.err != nil {
+		return m.err.Error()
+	}
 	switch m.State {
-	case TableView:
-		return m.tableModel.View()
+	case ListView:
+		return m.listModel.View()
 	case CreationView:
 		return m.creationModel.View()
 	case MainView:
-		return "Press t - table view\nPress c - create task\nPress q to exit\n"
-	case ErrView:
-		return m.Err.Error()
+		return "Press l - list view\nPress c - create task\nPress q to exit\n"
 	default:
-		return "Press t - table view\nPress q to exit\n"
+		return "Press l - list view\nPress q to exit\n"
 	}
 }
 
-func InitialAppModel(repo tasks.TaskRepository) AppModel {
-	return AppModel{
+func InitialMainModel(repo tasks.TaskRepository) MainModel {
+	listModel := components.InitialListModel(tasks.Tasks{})
+	creationModel := components.InitialCreationModel()
+
+	m := MainModel{
 		State:         MainView,
-		tableModel:    components.InitialTableModel(repo),
-		creationModel: components.InitialCreationModel(),
+		listModel:     listModel,
+		creationModel: creationModel,
 
 		repo: repo,
 	}
+
+	return m
 }
