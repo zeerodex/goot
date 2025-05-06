@@ -24,7 +24,7 @@ type MainModel struct {
 	err   error
 }
 
-func fetchTasks(repo tasks.TaskRepository) tea.Cmd {
+func fetchTasksCmd(repo tasks.TaskRepository) tea.Cmd {
 	return func() tea.Msg {
 		tasks, err := repo.GetAll()
 		if err != nil {
@@ -40,12 +40,26 @@ func createTaskCmd(repo tasks.TaskRepository, task components.Task) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return fetchTasks(repo)()
+		return fetchTasksCmd(repo)()
+	}
+}
+
+func deleteTaskCmd(repo tasks.TaskRepository, title string) tea.Cmd {
+	return func() tea.Msg {
+		err := repo.DeleteByTitle(title)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return fetchTasksCmd(repo)()
 	}
 }
 
 type FetchedTasksMsg struct {
 	Tasks tasks.Tasks
+}
+
+type DeleteTaskMsg struct {
+	title string
 }
 
 type errMsg struct {
@@ -57,7 +71,7 @@ type TaskCompletedMsg struct {
 }
 
 func (m MainModel) Init() tea.Cmd {
-	return fetchTasks(m.repo)
+	return fetchTasksCmd(m.repo)
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -85,6 +99,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case DeleteTaskMsg:
+		cmds = append(cmds, deleteTaskCmd(m.repo, msg.title))
+
 	case FetchedTasksMsg:
 		m.tasks = msg.Tasks
 		cmds = append(cmds, m.listModel.SetTasks(m.tasks))
@@ -104,6 +121,14 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		listModel, listCmd := m.listModel.Update(msg)
 		m.listModel = listModel.(components.ListModel)
 		cmds = append(cmds, listCmd)
+
+		if m.listModel.Method == "delete" {
+			deleteTitle := m.listModel.Selected
+			m.listModel.Method = ""
+			cmds = append(cmds, func() tea.Msg {
+				return DeleteTaskMsg{title: deleteTitle}
+			})
+		}
 
 	case CreationView:
 		creationModel, creationCmd := m.creationModel.Update(msg)
@@ -137,7 +162,7 @@ func (m MainModel) View() string {
 }
 
 func InitialMainModel(repo tasks.TaskRepository) MainModel {
-	listModel := components.InitialListModel(tasks.Tasks{})
+	listModel := components.InitialListModel()
 	creationModel := components.InitialCreationModel()
 
 	m := MainModel{
