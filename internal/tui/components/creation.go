@@ -1,4 +1,3 @@
-// File: components/creation.go
 package components
 
 import (
@@ -57,7 +56,7 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.Step == 1 {
 				if m.TaskInput.Value() == "" {
-					m.TaskInput.Placeholder = "Task cannot be empty"
+					m.TaskInput.Placeholder = "Task title cannot be empty"
 				} else {
 					m.Step = 2
 					m.TaskInput.Blur()

@@ -2,7 +2,7 @@ package tasks
 
 type Task struct {
 	ID          int
-	Task        string
+	Title       string
 	Description string
 	Status      bool
 }

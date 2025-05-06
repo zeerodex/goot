@@ -37,7 +37,7 @@ func (r *taskRepository) GetAll() (Tasks, error) {
 	var tasks Tasks
 	for rows.Next() {
 		var task Task
-		err = rows.Scan(&task.ID, &task.Task, &task.Description, &task.Status)
+		err = rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +53,7 @@ func (r *taskRepository) GetByID(id int) (*Task, error) {
 	row := r.db.QueryRow("SELECT id, title, description FROM tasks WHERE id = ?", id)
 
 	task := &Task{}
-	err := row.Scan(task.ID, task.Task, task.Description)
+	err := row.Scan(task.ID, task.Title, task.Description)
 	if err != nil {
 		return nil, err
 	}

@@ -48,7 +48,7 @@ type ListModel struct {
 func (m *ListModel) SetTasks(tasks tasks.Tasks) tea.Cmd {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
-		items[i] = item{title: task.Task, desc: task.Description}
+		items[i] = item{title: task.Title, desc: task.Description}
 	}
 	return m.list.SetItems(items)
 }
