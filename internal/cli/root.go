@@ -6,7 +6,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
-	"github.com/zeerodex/go-todo-tui/internal/database"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
 	"github.com/zeerodex/go-todo-tui/internal/tui"
 )
@@ -26,22 +25,13 @@ func newRootCmd(repo tasks.TaskRepository) *cobra.Command {
 	return cmd
 }
 
-func Execute() {
-	db, err := database.InitDB()
-	if err != nil {
-		fmt.Println("error init db:", err)
-		return
-	}
-	defer db.Close()
-
-	repo := tasks.NewTaskRepository(db)
-
+func Execute(repo tasks.TaskRepository) {
 	rootCmd := newRootCmd(repo)
 
 	rootCmd.AddCommand(NewCreateCmd(repo))
 	rootCmd.AddCommand(NewAllTasksCmd(repo))
 
-	err = rootCmd.Execute()
+	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
