@@ -30,6 +30,7 @@ func Execute(repo tasks.TaskRepository) {
 
 	rootCmd.AddCommand(NewCreateCmd(repo))
 	rootCmd.AddCommand(NewAllTasksCmd(repo))
+	rootCmd.AddCommand(NewDeleteTaskCmd(repo))
 
 	err := rootCmd.Execute()
 	if err != nil {

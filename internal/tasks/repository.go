@@ -1,6 +1,9 @@
 package tasks
 
-import "database/sql"
+import (
+	"database/sql"
+	"errors"
+)
 
 type TaskRepository interface {
 	Create(task string, description string) error
@@ -71,7 +74,7 @@ func (r *taskRepository) DeleteByID(id int) error {
 	}
 	rowsAffected, err := res.RowsAffected()
 	if rowsAffected < 1 {
-		return err
+		return errors.New("task was not found")
 	}
 	return nil
 }

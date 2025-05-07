@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
@@ -67,5 +68,25 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Description of the task")
+	return cmd
+}
+
+func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rm [task id]",
+		Short: "Deletes a task",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			id, err := strconv.Atoi(args[0])
+			if err != nil {
+				fmt.Printf("incorrect id:%v", err)
+				return
+			}
+			err = repo.DeleteByID(id)
+			if err != nil {
+				fmt.Println(err)
+			}
+		},
+	}
 	return cmd
 }
