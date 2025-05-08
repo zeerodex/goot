@@ -10,6 +10,7 @@ import (
 type CreationModel struct {
 	TaskInput textinput.Model
 	DescInput textinput.Model
+	DueInput  textinput.Model
 
 	Step   int
 	Done   bool
@@ -19,23 +20,30 @@ type CreationModel struct {
 type Task struct {
 	Title       string
 	Description string
+	Due         string
 }
 
 func InitialCreationModel() CreationModel {
 	taskInput := textinput.New()
 	taskInput.Focus()
-	taskInput.Placeholder = "Task"
+	taskInput.Placeholder = "Title (Required)"
 	taskInput.CharLimit = 156
 	taskInput.Width = 20
 
 	descInput := textinput.New()
-	descInput.Placeholder = "Description"
+	descInput.Placeholder = "Description (Not required)"
 	descInput.CharLimit = 156
 	descInput.Width = 40
+
+	dueInput := textinput.New()
+	dueInput.Placeholder = "Due [YYYY-MM-DD (HH:MM)] (Today by default)"
+	dueInput.CharLimit = 16
+	dueInput.Width = 40
 
 	return CreationModel{
 		TaskInput: taskInput,
 		DescInput: descInput,
+		DueInput:  dueInput,
 		Step:      1,
 	}
 }
@@ -58,19 +66,26 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.TaskInput.Value() == "" {
 					m.TaskInput.Placeholder = "Task title cannot be empty"
 				} else {
-					m.Step = 2
 					m.TaskInput.Blur()
 					m.DescInput.Focus()
+
+					m.Step = 2
 					return m, textinput.Blink
 				}
 			} else if m.Step == 2 {
+				m.DescInput.Blur()
+				m.DueInput.Focus()
+
+				m.Step = 3
+				return m, textinput.Blink
+			} else if m.Step == 3 {
 				m.Done = true
 
 				m.Result = Task{
 					Title:       m.TaskInput.Value(),
 					Description: m.DescInput.Value(),
+					Due:         m.DueInput.Value(),
 				}
-				return m, nil
 			}
 		}
 	}
@@ -81,6 +96,9 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case 2:
 		m.DescInput, cmd = m.DescInput.Update(msg)
+		cmds = append(cmds, cmd)
+	case 3:
+		m.DescInput, cmd = m.DueInput.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
