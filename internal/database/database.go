@@ -23,6 +23,7 @@ func InitDB() (*sql.DB, error) {
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	title TEXT,
 	description TEXT,
+	due TEXT,
 	completed BOOl)`
 
 	_, err = db.Exec(stmt)

@@ -3,10 +3,11 @@ package tasks
 import (
 	"database/sql"
 	"errors"
+	"time"
 )
 
 type TaskRepository interface {
-	Create(task string, description string) error
+	Create(task string, description string, due time.Time) error
 	GetAll() (Tasks, error)
 	GetByID(id int) (*Task, error)
 	Update(fields ...string) (*Task, error)
@@ -23,8 +24,8 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 	return &taskRepository{db: db}
 }
 
-func (r *taskRepository) Create(task string, description string) error {
-	_, err := r.db.Exec("INSERT INTO tasks (title, description, completed) VALUES (?, ?, ?)", task, description, false)
+func (r *taskRepository) Create(task string, description string, due time.Time) error {
+	_, err := r.db.Exec("INSERT INTO tasks (title, description, completed, due) VALUES (?, ?, ?, ?)", task, description, false, due.Format(time.RFC3339))
 	if err != nil {
 		return err
 	}
@@ -40,7 +41,7 @@ func (r *taskRepository) Toogle(id int, completed bool) error {
 }
 
 func (r *taskRepository) GetAll() (Tasks, error) {
-	rows, err := r.db.Query("SELECT id, title, description, completed FROM tasks")
+	rows, err := r.db.Query("SELECT id, title, description, due, completed FROM tasks")
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +50,12 @@ func (r *taskRepository) GetAll() (Tasks, error) {
 	var tasks Tasks
 	for rows.Next() {
 		var task Task
-		err = rows.Scan(&task.ID, &task.Title, &task.Description, &task.Completed)
+		var dueStr string
+		err = rows.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed)
+		if err != nil {
+			return nil, err
+		}
+		err = task.SetDue(dueStr)
 		if err != nil {
 			return nil, err
 		}
@@ -62,13 +68,19 @@ func (r *taskRepository) GetAll() (Tasks, error) {
 // TODO: update func
 
 func (r *taskRepository) GetByID(id int) (*Task, error) {
-	row := r.db.QueryRow("SELECT id, title, description FROM tasks WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, title, description, due, completed FROM tasks WHERE id = ?", id)
 
 	task := &Task{}
-	err := row.Scan(task.ID, task.Title, task.Description)
+	var dueStr string
+	err := row.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed)
 	if err != nil {
 		return nil, err
 	}
+	err = task.SetDue(dueStr)
+	if err != nil {
+		return nil, err
+	}
+
 	return task, nil
 }
 

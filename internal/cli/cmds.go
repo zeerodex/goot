@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
@@ -31,7 +32,7 @@ func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
 				fmt.Println()
 			} else {
 				for _, task := range tasks {
-					fmt.Printf("Id:%d\n\tTitle:%s\n\tDescription:%s\n\tStatus:%t\n", task.ID, task.Title, task.Description, task.Completed)
+					task.Print()
 				}
 			}
 		},
@@ -42,10 +43,11 @@ func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
 
 func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 	var description string
+	var dueTimeStr string
 	cmd := &cobra.Command{
-		Use:   "create [title]",
+		Use:   "create [title] [YYYY-MM-DD]",
 		Short: "Create a task",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			var task tasks.Task
 			if args[0] != "" {
@@ -54,19 +56,31 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 			if description != "" {
 				task.Description = description
 			}
-			err := repo.Create(task.Title, task.Description)
+
+			layout := "2006-01-02"
+
+			dueStr := args[1]
+			if dueTimeStr != "" {
+				dueStr += " " + dueTimeStr
+				layout += " 15:04"
+			}
+			due, err := time.ParseInLocation(layout, dueStr, time.Local)
+			if err != nil {
+				fmt.Println("Invalid format")
+				return
+			}
+			task.Due = due
+
+			err = repo.Create(task.Title, task.Description, task.Due)
 			if err != nil {
 				fmt.Printf("error creating task:%v", err)
 				return
 			}
-			if task.Description != "" {
-				fmt.Printf("Title: %s\nDescription:%s\n", task.Title, task.Description)
-				return
-			}
-			fmt.Printf("Title: %s\n", task.Title)
-			return
+
+			task.Print()
 		},
 	}
+	cmd.Flags().StringVarP(&dueTimeStr, "time", "t", "", "Due time (HH:MM)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Description of the task")
 	return cmd
 }
