@@ -12,6 +12,7 @@ type TaskRepository interface {
 	Update(fields ...string) (*Task, error)
 	DeleteByID(id int) error
 	DeleteByTitle(title string) error
+	Toogle(id int, completed bool) error
 }
 
 type taskRepository struct {
@@ -23,7 +24,15 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) Create(task string, description string) error {
-	_, err := r.db.Exec("INSERT INTO tasks (title, description, status) VALUES (?, ?, ?)", task, description, 0)
+	_, err := r.db.Exec("INSERT INTO tasks (title, description, completed) VALUES (?, ?, ?)", task, description, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *taskRepository) Toogle(id int, completed bool) error {
+	_, err := r.db.Exec("UPDATE tasks SET completed = ? WHERE id = ?", !completed, id)
 	if err != nil {
 		return err
 	}
@@ -31,7 +40,7 @@ func (r *taskRepository) Create(task string, description string) error {
 }
 
 func (r *taskRepository) GetAll() (Tasks, error) {
-	rows, err := r.db.Query("SELECT id, title, description, status FROM tasks")
+	rows, err := r.db.Query("SELECT id, title, description, completed FROM tasks")
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +49,7 @@ func (r *taskRepository) GetAll() (Tasks, error) {
 	var tasks Tasks
 	for rows.Next() {
 		var task Task
-		err = rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status)
+		err = rows.Scan(&task.ID, &task.Title, &task.Description, &task.Completed)
 		if err != nil {
 			return nil, err
 		}

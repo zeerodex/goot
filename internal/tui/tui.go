@@ -12,6 +12,7 @@ const (
 	MainView AppState = iota
 	ListView
 	CreationView
+	ErrView
 )
 
 type MainModel struct {
@@ -46,9 +47,19 @@ func createTaskCmd(repo tasks.TaskRepository, task components.Task) tea.Cmd {
 	}
 }
 
-func deleteTaskCmd(repo tasks.TaskRepository, title string) tea.Cmd {
+func deleteTaskCmd(repo tasks.TaskRepository, id int) tea.Cmd {
 	return func() tea.Msg {
-		err := repo.DeleteByTitle(title)
+		err := repo.DeleteByID(id)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return fetchTasksCmd(repo)()
+	}
+}
+
+func toogleTaskCmd(repo tasks.TaskRepository, id int, completed bool) tea.Cmd {
+	return func() tea.Msg {
+		err := repo.Toogle(id, completed)
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -61,7 +72,12 @@ type fetchedTasksMsg struct {
 }
 
 type deleteTaskMsg struct {
-	title string
+	id int
+}
+
+type toogleTaskMsg struct {
+	id        int
+	completed bool
 }
 
 type createTaskMsg struct {
@@ -90,6 +106,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentState == ListView {
 				m.currentState = MainView
 				return m, nil
+			} else if m.currentState == ErrView {
+				m.currentState = m.previuosState
+				return m, nil
 			}
 		case "l":
 			if m.currentState == MainView {
@@ -104,7 +123,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case deleteTaskMsg:
-		cmds = append(cmds, deleteTaskCmd(m.repo, msg.title))
+		cmds = append(cmds, deleteTaskCmd(m.repo, msg.id))
+
+	case toogleTaskMsg:
+		cmds = append(cmds, toogleTaskCmd(m.repo, msg.id, msg.completed))
 
 	case fetchedTasksMsg:
 		m.tasks = msg.Tasks
@@ -118,6 +140,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errMsg:
 		m.err = msg.err
+		m.previuosState = m.currentState
+		m.currentState = ErrView
 	}
 
 	switch m.currentState {
@@ -127,16 +151,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, listCmd)
 
 		if m.listModel.Method == "delete" {
-			deleteTitle := m.listModel.Selected
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
-				return deleteTaskMsg{title: deleteTitle}
+				return deleteTaskMsg{id: m.listModel.Selected.ID()}
 			})
 		}
 		if m.listModel.Method == "create" {
 			m.listModel.Method = ""
 			m.previuosState = m.currentState
 			m.currentState = CreationView
+		}
+		if m.listModel.Method == "toogle" {
+			m.listModel.Method = ""
+			cmds = append(cmds, func() tea.Msg {
+				return toogleTaskMsg{id: m.listModel.Selected.ID(), completed: m.listModel.Selected.Completed()}
+			})
+
 		}
 
 	case CreationView:
@@ -155,9 +185,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m MainModel) View() string {
-	if m.err != nil {
-		return m.err.Error()
-	}
 	switch m.currentState {
 	case ListView:
 		return m.listModel.View()
@@ -165,6 +192,8 @@ func (m MainModel) View() string {
 		return m.creationModel.View()
 	case MainView:
 		return "Press l - list view\nPress c - create task\nPress q to exit\n"
+	case ErrView:
+		return m.err.Error()
 	default:
 		return "Press l - list view\nPress q to exit\n"
 	}

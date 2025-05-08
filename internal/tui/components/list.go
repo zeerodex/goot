@@ -12,16 +12,21 @@ type ListErrorMsg struct {
 }
 
 type item struct {
+	id          int
 	title, desc string
+	completed   bool
 }
 
+func (i item) ID() int             { return i.id }
 func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.desc }
+func (i item) Completed() bool     { return i.completed }
 func (i item) FilterValue() string { return i.title }
 
 type listKeyMap struct {
-	deleteTask key.Binding
-	createTask key.Binding
+	deleteTask     key.Binding
+	createTask     key.Binding
+	toogleComplete key.Binding
 }
 
 func newListKeyMap() *listKeyMap {
@@ -34,6 +39,10 @@ func newListKeyMap() *listKeyMap {
 			key.WithKeys("d"),
 			key.WithHelp("d", "delete task"),
 		),
+		toogleComplete: key.NewBinding(
+			key.WithKeys("t"),
+			key.WithHelp("t", "toogle task completion"),
+		),
 	}
 }
 
@@ -42,13 +51,19 @@ type ListModel struct {
 	keys *listKeyMap
 
 	Method   string
-	Selected string
+	Selected item
 }
 
 func (m *ListModel) SetTasks(tasks tasks.Tasks) tea.Cmd {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
-		items[i] = item{title: task.Title, desc: task.Description}
+		title := task.Title
+		if task.Completed {
+			title += " | Completed"
+		} else {
+			title += " | Uncompleted"
+		}
+		items[i] = item{id: task.ID, title: title, desc: task.Description, completed: task.Completed}
 	}
 	return m.list.SetItems(items)
 }
@@ -68,16 +83,19 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.deleteTask):
 			m.Method = "delete"
-			selected := m.list.SelectedItem()
-			if selected != nil {
-				m.Selected = selected.(item).Title()
-				statusCmd := m.list.NewStatusMessage("Deleted " + m.Selected)
-				return m, statusCmd
-			}
-			return m, nil
+			selected := m.list.SelectedItem().(item)
+			statusCmd := m.list.NewStatusMessage("Deleted " + selected.Title())
+			m.Selected = selected
+			return m, statusCmd
 		case key.Matches(msg, m.keys.createTask):
 			m.Method = "create"
 			return m, nil
+		case key.Matches(msg, m.keys.toogleComplete):
+			m.Method = "toogle"
+			selected := m.list.SelectedItem().(item)
+			statusCmd := m.list.NewStatusMessage("Toogle completed for" + selected.Title())
+			m.Selected = selected
+			return m, statusCmd
 		}
 	}
 
@@ -106,12 +124,14 @@ func InitialListModel() ListModel {
 		return []key.Binding{
 			listKeys.createTask,
 			listKeys.deleteTask,
+			listKeys.toogleComplete,
 		}
 	}
 	list.AdditionalFullHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			listKeys.createTask,
 			listKeys.deleteTask,
+			listKeys.toogleComplete,
 		}
 	}
 

@@ -31,7 +31,7 @@ func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
 				fmt.Println()
 			} else {
 				for _, task := range tasks {
-					fmt.Printf("Id:%d\n\tTitle:%s\n\tDescription:%s\n\tStatus:%t\n", task.ID, task.Title, task.Description, task.Status)
+					fmt.Printf("Id:%d\n\tTitle:%s\n\tDescription:%s\n\tStatus:%t\n", task.ID, task.Title, task.Description, task.Completed)
 				}
 			}
 		},

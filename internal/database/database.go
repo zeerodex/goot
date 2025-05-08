@@ -23,7 +23,7 @@ func InitDB() (*sql.DB, error) {
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	title TEXT,
 	description TEXT,
-	status INTEGER)`
+	completed BOOl)`
 
 	_, err = db.Exec(stmt)
 	if err != nil {
