@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"time"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
 	"github.com/zeerodex/go-todo-tui/internal/tui/components"
@@ -41,7 +39,7 @@ func fetchTasksCmd(repo tasks.TaskRepository) tea.Cmd {
 
 func createTaskCmd(repo tasks.TaskRepository, task components.Task) tea.Cmd {
 	return func() tea.Msg {
-		err := repo.Create(task.Title, task.Description, time.Now())
+		err := repo.Create(task.Title, task.Description, task.Due)
 		if err != nil {
 			return errMsg{err: err}
 		}

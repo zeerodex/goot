@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
+	"github.com/zeerodex/go-todo-tui/pkg/timeutil"
 )
 
 func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
@@ -57,14 +57,11 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 				task.Description = description
 			}
 
-			layout := "2006-01-02"
-
 			dueStr := args[1]
 			if dueTimeStr != "" {
 				dueStr += " " + dueTimeStr
-				layout += " 15:04"
 			}
-			due, err := time.ParseInLocation(layout, dueStr, time.Local)
+			due, err := timeutil.ParseAndValidateTimestamp(dueStr)
 			if err != nil {
 				fmt.Println("Invalid format")
 				return

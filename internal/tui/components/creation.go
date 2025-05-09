@@ -2,9 +2,11 @@ package components
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/zeerodex/go-todo-tui/pkg/timeutil"
 )
 
 type CreationModel struct {
@@ -20,7 +22,7 @@ type CreationModel struct {
 type Task struct {
 	Title       string
 	Description string
-	Due         string
+	Due         time.Time
 }
 
 func InitialCreationModel() CreationModel {
@@ -37,7 +39,7 @@ func InitialCreationModel() CreationModel {
 
 	dueInput := textinput.New()
 	dueInput.Placeholder = "Due [YYYY-MM-DD (HH:MM)] (Today by default)"
-	dueInput.CharLimit = 16
+	dueInput.CharLimit = 156
 	dueInput.Width = 40
 
 	return CreationModel{
@@ -70,21 +72,28 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.DescInput.Focus()
 
 					m.Step = 2
-					return m, textinput.Blink
+					return m, nil
 				}
 			} else if m.Step == 2 {
 				m.DescInput.Blur()
 				m.DueInput.Focus()
 
 				m.Step = 3
-				return m, textinput.Blink
+				return m, nil
 			} else if m.Step == 3 {
-				m.Done = true
+				due, err := timeutil.ParseAndValidateTimestamp(m.DueInput.Value())
+				if err != nil {
+					m.DueInput.SetValue("")
+					m.DueInput.Placeholder = err.Error()
+				} else {
+					m.Done = true
 
-				m.Result = Task{
-					Title:       m.TaskInput.Value(),
-					Description: m.DescInput.Value(),
-					Due:         m.DueInput.Value(),
+					m.Result = Task{
+						Title:       m.TaskInput.Value(),
+						Description: m.DescInput.Value(),
+						Due:         due,
+					}
+
 				}
 			}
 		}
@@ -98,7 +107,7 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.DescInput, cmd = m.DescInput.Update(msg)
 		cmds = append(cmds, cmd)
 	case 3:
-		m.DescInput, cmd = m.DueInput.Update(msg)
+		m.DueInput, cmd = m.DueInput.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -106,15 +115,25 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m CreationModel) View() string {
-	var s string = fmt.Sprintf(
-		"What's your task?\n\n%s",
-		m.TaskInput.View(),
-	) + "\n"
+	var s string
+	if m.Step == 1 {
+		s = fmt.Sprintf(
+			"What's your task?\n\n%s",
+			m.TaskInput.View(),
+		) + "\n"
+	}
 
 	if m.Step == 2 {
 		s += fmt.Sprintf(
 			"Enter a description:\n\n%s",
 			m.DescInput.View()) + "\n\n"
+		s += "Press Enter to save"
+	}
+
+	if m.Step == 3 {
+		s += fmt.Sprintf(
+			"Enter a due date:\n\n%s",
+			m.DueInput.View()) + "\n\n"
 		s += "Press Enter to save"
 	}
 
