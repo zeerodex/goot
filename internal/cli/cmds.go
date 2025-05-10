@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"encoding/json"
@@ -32,7 +32,7 @@ func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
 				fmt.Println()
 			} else {
 				for _, task := range tasks {
-					task.Print()
+					task.Task()
 				}
 			}
 		},
@@ -45,36 +45,38 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 	var description string
 	var dueTimeStr string
 	cmd := &cobra.Command{
-		Use:   "create [title] [YYYY-MM-DD]",
+		Use:   "create [title] [date (Today if none)]",
 		Short: "Create a task",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.RangeArgs(1, 3),
 		Run: func(cmd *cobra.Command, args []string) {
 			var task tasks.Task
-			if args[0] != "" {
-				task.Title = args[0]
-			}
-			if description != "" {
-				task.Description = description
+			task.Title = args[0]
+			task.Description = description
+
+			var dueStr string
+			switch len(args) {
+			case 3:
+				dueStr = args[1] + " " + args[2]
+			case 2:
+				dueStr = args[1]
+			case 1:
+				dueStr = "today"
 			}
 
-			dueStr := args[1]
-			if dueTimeStr != "" {
-				dueStr += " " + dueTimeStr
-			}
 			due, err := timeutil.ParseAndValidateTimestamp(dueStr)
 			if err != nil {
-				fmt.Println("Invalid format")
+				fmt.Println(err.Error())
 				return
 			}
 			task.Due = due
 
 			err = repo.Create(task.Title, task.Description, task.Due)
 			if err != nil {
-				fmt.Printf("error creating task:%v", err)
+				fmt.Printf("Error creating task:%v", err)
 				return
 			}
 
-			task.Print()
+			task.Task()
 		},
 	}
 	cmd.Flags().StringVarP(&dueTimeStr, "time", "t", "", "Due time (HH:MM)")

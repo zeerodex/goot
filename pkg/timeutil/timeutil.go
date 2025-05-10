@@ -2,16 +2,18 @@ package timeutil
 
 import (
 	"errors"
-	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
 var (
-	errInvalidFormat = errors.New("Invalid format")
-	dateLayout       = "2006-01-02"
-	timeLayout       = "15:04"
-	layout           = "2006-01-02 15:04"
+	dateLayout = "2006-01-02"
+	timeLayout = "15:04"
+	layout     = "2006-01-02 15:04"
+
+	inNUnitRegex = regexp.MustCompile(`^in (\d+) (day|week|month|year)s?$`)
 
 	weekdayMap = map[string]time.Weekday{
 		"sunday":    time.Sunday,
@@ -35,112 +37,111 @@ var (
 )
 
 func ParseWeekDay(weekdayStr string) (time.Weekday, error) {
+	weekdayStr = strings.TrimSpace(weekdayStr)
 	weekdayStr = strings.ToLower(weekdayStr)
 	if wd, ok := weekdayMap[weekdayStr]; ok {
 		return wd, nil
 	}
-	return time.Monday, errInvalidFormat
+	return time.Monday, errors.New("error parsing weekday: invalid format")
 }
 
-func NearestWeekday(currentWeekday, tartgetWeekday time.Weekday) time.Time {
-	daysToAdd := (int(tartgetWeekday) - int(currentWeekday))
+func NearestWeekday(startDate time.Time, tartgetWeekday time.Weekday) time.Time {
+	daysToAdd := (int(tartgetWeekday) - int(startDate.Weekday()))
 	if daysToAdd < 0 {
 		daysToAdd += 7
 	}
 
-	return time.Now().AddDate(0, 0, daysToAdd)
+	return startDate.AddDate(0, 0, daysToAdd)
 }
 
-func ParseAndValidateTimestamp(timestampStr string) (time.Time, error) {
-	var timestamp time.Time
-	timestampStr = strings.TrimSpace(timestampStr)
+func SeparateDateAndTime(input string) (dateStr, timeStr string) {
+	timeRegex := regexp.MustCompile(`(\d{1,2}):(\d{2})`)
+	timeMatches := timeRegex.FindStringSubmatch(input)
 
-	if strings.Contains(timestampStr, " ") {
-		datetime := strings.Split(timestampStr, " ")
-		if len(datetime) != 2 {
-			return timestamp, errInvalidFormat
-		}
+	if len(timeMatches) > 0 {
+		timeStr = timeMatches[0]
 
-		dateStr, err := ValidateDate(datetime[0], loc)
-		if err != nil {
-			return timestamp, errInvalidFormat
-		}
-
-		_, err = time.Parse(timeLayout, datetime[1])
-		if err != nil {
-			return timestamp, errInvalidFormat
-		}
-
-		timestampStr := dateStr + " " + datetime[1]
-		timestamp, err = time.ParseInLocation(layout, timestampStr, loc)
-		if err != nil {
-			fmt.Println(err)
-			return timestamp, errInvalidFormat
-		}
+		input = strings.Replace(input, timeStr, "", 1)
+		input = strings.TrimSpace(input)
 	} else {
-		dateStr, err := ValidateDate(timestampStr, loc)
-		if err != nil {
-			return timestamp, errInvalidFormat
-		}
-
-		timestamp, err = time.ParseInLocation(dateLayout, dateStr, loc)
-		if err != nil {
-			return timestamp, nil
-		}
+		dateStr = input
+		timeStr = ""
 	}
-	return timestamp, nil
+	return dateStr, timeStr
 }
 
-func ValidateDate(dateStr string, loc *time.Location) (string, error) {
-	today := time.Now()
-	date, err := time.ParseInLocation(dateLayout, dateStr, loc)
+func ParseAndValidateTimestamp(datetimeStr string) (time.Time, error) {
+	datetimeStr = strings.TrimSpace(datetimeStr)
+	datetimeStr = strings.ToLower(datetimeStr)
+	dateStr, timeStr := SeparateDateAndTime(datetimeStr)
+
+	timestampDate, err := ParseAndValidateDate(dateStr)
 	if err != nil {
-		dateStr = strings.ToLower(dateStr)
-		// dateStr = strings.TrimSpace(dateStr)
+		return time.Time{}, err
+	}
+
+	if timeStr != "" {
+		timestampTime, err := time.ParseInLocation(timeLayout, timeStr, loc)
+		if err != nil {
+			return time.Time{}, errors.New("invaild time format")
+		}
+		return time.Date(timestampDate.Year(), timestampTime.Month(), timestampTime.Day(), timestampTime.Hour(), timestampTime.Minute(), 0, 0, loc), nil
+	}
+
+	return timestampDate, nil
+}
+
+func ParseAndValidateDate(dateStr string) (time.Time, error) {
+	dateStr = strings.TrimSpace(dateStr)
+	dateStr = strings.ToLower(dateStr)
+	now := time.Now()
+	date, _ := time.ParseInLocation(layout, dateStr, loc)
+	if date.IsZero() {
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 		switch dateStr {
 		case "today":
-			date = today
+			return today, nil
 		case "tommorow":
-			date = today.AddDate(0, 0, 1)
+			return today.AddDate(0, 0, 1), nil
+		case "next week":
+			currentWeekday := today.Weekday()
+			daysToAdd := (int(time.Monday) - int(currentWeekday) + 7) % 7
+			if daysToAdd == 0 {
+				daysToAdd = 7
+			}
+			return today.AddDate(0, 0, daysToAdd), nil
+		case "next month":
+			return today.AddDate(0, 1, 0), nil
 		}
-		if strings.HasPrefix("next", dateStr) || strings.HasPrefix("this", dateStr) {
-			dateSlice := strings.Split(dateStr, " ")
-			if len(dateSlice) == 2 {
-				after := dateSlice[0]
-				period := dateSlice[1]
-				weekday, err := ParseWeekDay(period)
+		if strings.HasPrefix(dateStr, "next ") {
+			parts := strings.Fields(dateStr)
+			if len(parts) == 2 {
+				targetWd, err := ParseWeekDay(parts[1])
 				if err != nil {
-					if period == "week" {
-						today = today.AddDate(0, 0, 7)
-					} else {
-						return "", errInvalidFormat
-					}
+					return time.Time{}, err
 				}
-
-				date = NearestWeekday(today.Weekday(), weekday)
-				// HACK:
-				if after == "next" {
-					date = date.AddDate(0, 0, 7)
-				}
-			} else {
-				return "", errInvalidFormat
+				wd := NearestWeekday(today, targetWd)
+				return wd, nil
 			}
-		} else {
-			weekday, err := ParseWeekDay(dateStr)
-			if err != nil {
-				if dateStr == "week" {
-					today = today.AddDate(0, 0, 7)
-				} else {
-					return "", errInvalidFormat
-				}
-			}
-
-			date = NearestWeekday(today.Weekday(), weekday)
 		}
+		if matches := inNUnitRegex.FindStringSubmatch(dateStr); len(matches) > 0 {
+			n, err := strconv.Atoi(matches[1])
+			if err != nil {
+				return time.Time{}, errors.New("failed to parse number")
+			}
+			unit := matches[2]
+			switch unit {
+			case "day":
+				return today.AddDate(0, 0, n), nil
+			case "week":
+				return today.AddDate(0, 0, n*7), nil
+			case "moth":
+				return today.AddDate(0, 1, 0), nil
+			case "year":
+				return today.AddDate(1, 0, 0), nil
+			}
+		}
+		return time.Time{}, errors.New("unable to parse date string")
 	}
-	if date.Format(dateLayout) != "0001-01-01" {
-		return date.Format(dateLayout), nil
-	} else {
-		return "", errInvalidFormat
-	}
+	return date, nil
 }

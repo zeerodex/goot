@@ -64,7 +64,8 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
 		case "enter":
-			if m.Step == 1 {
+			switch m.Step {
+			case 1:
 				if m.TaskInput.Value() == "" {
 					m.TaskInput.Placeholder = "Task title cannot be empty"
 				} else {
@@ -74,13 +75,13 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Step = 2
 					return m, nil
 				}
-			} else if m.Step == 2 {
+			case 2:
 				m.DescInput.Blur()
 				m.DueInput.Focus()
 
 				m.Step = 3
 				return m, nil
-			} else if m.Step == 3 {
+			case 3:
 				due, err := timeutil.ParseAndValidateTimestamp(m.DueInput.Value())
 				if err != nil {
 					m.DueInput.SetValue("")

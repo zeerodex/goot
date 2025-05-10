@@ -15,7 +15,7 @@ type Task struct {
 
 type Tasks []Task
 
-func (t Task) Print() {
+func (t Task) Task() {
 	if t.Description != "" {
 		fmt.Printf("ID:%d\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n", t.ID, t.Title, t.Description, t.DueStr(), t.Completed)
 		return
