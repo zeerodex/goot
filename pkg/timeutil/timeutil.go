@@ -61,8 +61,8 @@ func SeparateDateAndTime(input string) (dateStr, timeStr string) {
 	if len(timeMatches) > 0 {
 		timeStr = timeMatches[0]
 
-		input = strings.Replace(input, timeStr, "", 1)
-		input = strings.TrimSpace(input)
+		dateStr = strings.Replace(input, timeStr, "", 1)
+		dateStr = strings.TrimSpace(dateStr)
 	} else {
 		dateStr = input
 		timeStr = ""
@@ -85,7 +85,7 @@ func ParseAndValidateTimestamp(datetimeStr string) (time.Time, error) {
 		if err != nil {
 			return time.Time{}, errors.New("invaild time format")
 		}
-		return time.Date(timestampDate.Year(), timestampTime.Month(), timestampTime.Day(), timestampTime.Hour(), timestampTime.Minute(), 0, 0, loc), nil
+		return time.Date(timestampDate.Year(), timestampDate.Month(), timestampDate.Day(), timestampTime.Hour(), timestampTime.Minute(), 0, 0, loc), nil
 	}
 
 	return timestampDate, nil
@@ -104,12 +104,7 @@ func ParseAndValidateDate(dateStr string) (time.Time, error) {
 		case "tommorow":
 			return today.AddDate(0, 0, 1), nil
 		case "next week":
-			currentWeekday := today.Weekday()
-			daysToAdd := (int(time.Monday) - int(currentWeekday) + 7) % 7
-			if daysToAdd == 0 {
-				daysToAdd = 7
-			}
-			return today.AddDate(0, 0, daysToAdd), nil
+			return today.AddDate(0, 0, 7), nil
 		case "next month":
 			return today.AddDate(0, 1, 0), nil
 		}
@@ -131,14 +126,14 @@ func ParseAndValidateDate(dateStr string) (time.Time, error) {
 			}
 			unit := matches[2]
 			switch unit {
-			case "day":
+			case "days":
 				return today.AddDate(0, 0, n), nil
-			case "week":
+			case "weeks":
 				return today.AddDate(0, 0, n*7), nil
-			case "moth":
-				return today.AddDate(0, 1, 0), nil
-			case "year":
-				return today.AddDate(1, 0, 0), nil
+			case "months":
+				return today.AddDate(0, n, 0), nil
+			case "years":
+				return today.AddDate(n, 0, 0), nil
 			}
 		}
 		return time.Time{}, errors.New("unable to parse date string")

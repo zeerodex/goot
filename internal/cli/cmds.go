@@ -47,7 +47,7 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [title] [date (Today if none)]",
 		Short: "Create a task",
-		Args:  cobra.RangeArgs(1, 3),
+		Args:  cobra.RangeArgs(2, 4),
 		Run: func(cmd *cobra.Command, args []string) {
 			var task tasks.Task
 			task.Title = args[0]
@@ -55,12 +55,18 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 
 			var dueStr string
 			switch len(args) {
+			case 4:
+				dueStr = args[1] + " " + args[2] + " " + args[3]
 			case 3:
 				dueStr = args[1] + " " + args[2]
 			case 2:
 				dueStr = args[1]
 			case 1:
 				dueStr = "today"
+			}
+
+			if dueTimeStr != "" {
+				dueStr += " " + dueTimeStr
 			}
 
 			due, err := timeutil.ParseAndValidateTimestamp(dueStr)
