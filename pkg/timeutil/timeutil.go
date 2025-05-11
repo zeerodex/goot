@@ -47,7 +47,7 @@ func ParseWeekDay(weekdayStr string) (time.Weekday, error) {
 
 func NearestWeekday(startDate time.Time, tartgetWeekday time.Weekday) time.Time {
 	daysToAdd := (int(tartgetWeekday) - int(startDate.Weekday()))
-	if daysToAdd < 0 {
+	if daysToAdd <= 0 {
 		daysToAdd += 7
 	}
 
@@ -95,7 +95,7 @@ func ParseAndValidateDate(dateStr string) (time.Time, error) {
 	dateStr = strings.TrimSpace(dateStr)
 	dateStr = strings.ToLower(dateStr)
 	now := time.Now()
-	date, _ := time.ParseInLocation(layout, dateStr, loc)
+	date, _ := time.ParseInLocation(dateLayout, dateStr, loc)
 	if date.IsZero() {
 		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 		switch dateStr {
@@ -126,13 +126,13 @@ func ParseAndValidateDate(dateStr string) (time.Time, error) {
 			}
 			unit := matches[2]
 			switch unit {
-			case "days":
+			case "days", "day":
 				return today.AddDate(0, 0, n), nil
-			case "weeks":
+			case "weeks", "week":
 				return today.AddDate(0, 0, n*7), nil
-			case "months":
+			case "months", "month":
 				return today.AddDate(0, n, 0), nil
-			case "years":
+			case "years", "year":
 				return today.AddDate(n, 0, 0), nil
 			}
 		}

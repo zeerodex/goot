@@ -60,8 +60,10 @@ func (m *ListModel) SetTasks(tasks tasks.Tasks) tea.Cmd {
 		title := task.Title
 		if task.Completed {
 			title += " | Completed"
+			title += " | " + task.DueStr()
 		} else {
 			title += " | Uncompleted"
+			title += " | " + task.DueStr()
 		}
 		items[i] = item{id: task.ID, title: title, desc: task.Description, completed: task.Completed}
 	}

@@ -11,7 +11,7 @@ import (
 func main() {
 	db, err := database.InitDB()
 	if err != nil {
-		fmt.Println("error init db:", err)
+		fmt.Println("failed to init db:", err)
 		return
 	}
 	defer db.Close()

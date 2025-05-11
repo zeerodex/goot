@@ -24,7 +24,10 @@ func (t Task) Task() {
 }
 
 func (t *Task) DueStr() string {
-	return t.Due.Local().Format("2006-01-02 15:04")
+	if t.Due.Hour() == 0 && t.Due.Minute() == 0 {
+		return t.Due.Format("2006-01-02")
+	}
+	return t.Due.Format("2006-01-02 15:04")
 }
 
 func (t *Task) SetDue(dueStr string) error {
