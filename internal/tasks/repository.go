@@ -10,6 +10,7 @@ type TaskRepository interface {
 	Create(task string, description string, due time.Time) error
 	GetAll() (Tasks, error)
 	GetByID(id int) (*Task, error)
+	GetByDue(due time.Time) (Task, error)
 	Update(fields ...string) (*Task, error)
 	DeleteByID(id int) error
 	DeleteByTitle(title string) error
@@ -65,6 +66,23 @@ func (r *taskRepository) GetAll() (Tasks, error) {
 	return tasks, nil
 }
 
+func (r *taskRepository) GetByDue(due time.Time) (Task, error) {
+	row := r.db.QueryRow("SELECT id, title, description, due, completed FROM tasks WHERE due = ?", due.Format(time.RFC3339))
+
+	var dueStr string
+	var task Task
+	err := row.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed)
+	if err != nil {
+		return task, err
+	}
+	err = task.SetDue(dueStr)
+	if err != nil {
+		return task, err
+	}
+
+	return task, nil
+}
+
 // TODO: update func
 
 func (r *taskRepository) GetByID(id int) (*Task, error) {
@@ -72,7 +90,7 @@ func (r *taskRepository) GetByID(id int) (*Task, error) {
 
 	task := &Task{}
 	var dueStr string
-	err := row.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed)
+	err := row.Scan(task.ID, task.Title, task.Description, dueStr, task.Completed)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +114,9 @@ func (r *taskRepository) DeleteByID(id int) error {
 	rowsAffected, err := res.RowsAffected()
 	if rowsAffected < 1 {
 		return errors.New("task was not found")
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }
