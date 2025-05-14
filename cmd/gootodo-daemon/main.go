@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -14,16 +14,19 @@ import (
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
 )
 
+type contextKey string
+
+var tasksKey contextKey = "tasks"
+
 type TaskProcessor struct {
-	db           *sql.DB
 	repo         tasks.TaskRepository
 	batchSize    int
 	timeWindow   time.Duration
 	pollInterval time.Duration
 }
 
-func NewTaskProcessor(db *sql.DB, repo tasks.TaskRepository, batchSize int, timeWindow, pollInterval time.Duration) *TaskProcessor {
-	return &TaskProcessor{db: db, repo: repo, batchSize: batchSize, timeWindow: timeWindow, pollInterval: pollInterval}
+func NewTaskProcessor(repo tasks.TaskRepository, batchSize int, timeWindow, pollInterval time.Duration) *TaskProcessor {
+	return &TaskProcessor{repo: repo, batchSize: batchSize, timeWindow: timeWindow, pollInterval: pollInterval}
 }
 
 func (tp *TaskProcessor) Start(ctx context.Context) {
@@ -33,22 +36,44 @@ func (tp *TaskProcessor) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
+			log.Println("Tick")
+			ctx, err := tp.FetchTasks(ctx)
+			fmt.Println(ctx.Value(tasksKey))
+			if err != nil {
+				log.Printf("error fetching tasks: %v", err)
+			}
+
+			tp.ProcessTasks(ctx)
 		case <-ctx.Done():
-			log.Println("Daemon shutting down")
+			log.Println("Daemon shutting down...")
 			return
 		}
 	}
 }
 
-func (tp *TaskProcessor) CheckTasks(repo tasks.TaskRepository) error {
-	now := time.Now()
-	due := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, now.Location())
-	task, err := repo.GetByDue(due)
-	if err != nil {
-		return fmt.Errorf("failed to get task: %w", err)
+func (tp *TaskProcessor) ProcessTasks(ctx context.Context) (context.Context, error) {
+	tasks := ctx.Value(tasksKey).(tasks.Tasks)
+	if len(tasks) < 1 {
+		return nil, errors.New("no tasks")
 	}
-	go SendTaskDueNofitication(task)
-	return nil
+	for _, task := range tasks {
+		go SendTaskDueNofitication(task)
+	}
+	return ctx, nil
+}
+
+func (tp *TaskProcessor) FetchTasks(ctx context.Context) (context.Context, error) {
+	now := time.Now()
+	minTime := now.Add(-tp.timeWindow)
+	maxTime := now.Add(tp.timeWindow)
+
+	tasks, err := tp.repo.GetByDueWithWindow(minTime, maxTime, tp.batchSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task: %w", err)
+	}
+
+	ctx = context.WithValue(ctx, tasksKey, tasks)
+	return ctx, nil
 }
 
 func SendTaskDueNofitication(task tasks.Task) error {
@@ -68,10 +93,7 @@ func main() {
 	}
 	defer db.Close()
 
-	tp := NewTaskProcessor(db, tasks.NewTaskRepository(db), 5, time.Minute, 5*time.Second)
-
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	tp := NewTaskProcessor(tasks.NewTaskRepository(db), 5, time.Minute, 5*time.Second)
 
 	sigs := make(chan os.Signal, 1)
 
@@ -85,6 +107,4 @@ func main() {
 	<-sigs
 	log.Println("Interrupt received, shutting down...")
 	cancel()
-
-	log.Println("Daemon shutdown completed")
 }

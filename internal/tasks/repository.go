@@ -3,6 +3,7 @@ package tasks
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -11,6 +12,7 @@ type TaskRepository interface {
 	GetAll() (Tasks, error)
 	GetByID(id int) (*Task, error)
 	GetByDue(due time.Time) (Task, error)
+	GetByDueWithWindow(minTime, maxTime time.Time, batchSize int) (Tasks, error)
 	Update(fields ...string) (*Task, error)
 	DeleteByID(id int) error
 	DeleteByTitle(title string) error
@@ -63,6 +65,33 @@ func (r *taskRepository) GetAll() (Tasks, error) {
 
 		tasks = append(tasks, task)
 	}
+	return tasks, nil
+}
+
+func (r *taskRepository) GetByDueWithWindow(minTime, maxTime time.Time, batchSize int) (Tasks, error) {
+	fmt.Println(minTime)
+	fmt.Println(maxTime)
+	rows, err := r.db.Query("SELECT id, title, description, due, completed FROM tasks WHERE due > ? AND due < ?", minTime.Format(time.RFC3339), maxTime.Format(time.RFC3339))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tasks Tasks
+	for rows.Next() {
+		var task Task
+		var dueStr string
+		err = rows.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed)
+		if err != nil {
+			return nil, err
+		}
+		err = task.SetDue(dueStr)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+
 	return tasks, nil
 }
 
