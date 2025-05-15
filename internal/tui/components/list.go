@@ -6,8 +6,30 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/zeerodex/goot/internal/tasks"
+)
+
+var (
+	mainColor  = "12"
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("255")).
+			Background(lipgloss.Color(mainColor)).
+			Padding(0, 1)
+
+	selectedTitleStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder(), false, false, false, true).
+				BorderForeground(lipgloss.Color(mainColor)).
+				Foreground(lipgloss.Color(mainColor)).
+				Padding(0, 1)
+
+	selectedDescStyle = selectedTitleStyle.
+				Foreground(lipgloss.Color(mainColor))
+
+	statusMessageStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.AdaptiveColor{Light: "14", Dark: mainColor}).
+				Render
 )
 
 type ListErrorMsg struct {
@@ -86,22 +108,26 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h, v := msg.Width, msg.Height
 		m.list.SetSize(h, v)
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, m.keys.deleteTask):
-			m.Method = "delete"
-			selected := m.list.SelectedItem().(item)
-			statusCmd := m.list.NewStatusMessage("Deleted " + selected.TitleOnly())
-			m.Selected = selected
-			return m, statusCmd
-		case key.Matches(msg, m.keys.createTask):
-			m.Method = "create"
-			return m, nil
-		case key.Matches(msg, m.keys.toogleComplete):
-			m.Method = "toogle"
-			selected := m.list.SelectedItem().(item)
-			statusCmd := m.list.NewStatusMessage("Toggle completed for " + selected.TitleOnly())
-			m.Selected = selected
-			return m, statusCmd
+		if m.list.FilterState() != list.Filtering {
+			switch {
+			case key.Matches(msg, m.keys.deleteTask):
+				if m.list.SelectedItem() != nil {
+					m.Method = "delete"
+					selected := m.list.SelectedItem().(item)
+					statusCmd := m.list.NewStatusMessage(statusMessageStyle("Deleted " + selected.TitleOnly()))
+					m.Selected = selected
+					return m, statusCmd
+				}
+			case key.Matches(msg, m.keys.createTask):
+				m.Method = "create"
+				return m, nil
+			case key.Matches(msg, m.keys.toogleComplete):
+				m.Method = "toogle"
+				selected := m.list.SelectedItem().(item)
+				statusCmd := m.list.NewStatusMessage(statusMessageStyle("Toggle completed for " + selected.TitleOnly()))
+				m.Selected = selected
+				return m, statusCmd
+			}
 		}
 	}
 
@@ -122,10 +148,14 @@ func InitialListModel() ListModel {
 	var items []list.Item
 
 	listKeys := newListKeyMap()
+	delegate := list.NewDefaultDelegate()
+	delegate.Styles.SelectedTitle = selectedTitleStyle
+	delegate.Styles.SelectedDesc = selectedDescStyle
 
-	list := list.New(items, list.NewDefaultDelegate(), 75, 30)
+	list := list.New(items, delegate, 75, 30)
+	list.Title = "Goot"
+	list.Styles.Title = titleStyle
 
-	// HACK:
 	list.AdditionalShortHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			listKeys.createTask,

@@ -99,16 +99,18 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "q":
-			if m.currentState == ListView {
-				return m, tea.Quit
-			} else if m.currentState == ErrView {
-				m.currentState = m.previuosState
+		case "esc":
+			switch m.currentState {
+			case CreationView:
+				m.currentState = ListView
 				return m, nil
 			}
-		case "c":
-			if m.currentState == ListView {
-				m.currentState = CreationView
+		case "q":
+			switch m.currentState {
+			case ListView:
+				return m, tea.Quit
+			case ErrView:
+				m.currentState = m.previuosState
 				return m, nil
 			}
 		}
