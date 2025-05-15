@@ -15,7 +15,7 @@ type TaskRepository interface {
 	Update(fields ...string) (*Task, error)
 	DeleteByID(id int) error
 	DeleteByTitle(title string) error
-	Toogle(id int, completed bool) error
+	ToggleCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
 }
 
@@ -35,7 +35,7 @@ func (r *taskRepository) Create(task string, description string, due time.Time) 
 	return nil
 }
 
-func (r *taskRepository) Toogle(id int, completed bool) error {
+func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
 	_, err := r.db.Exec("UPDATE tasks SET completed = ? WHERE id = ?", !completed, id)
 	if err != nil {
 		return err

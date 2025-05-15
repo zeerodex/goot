@@ -9,8 +9,7 @@ import (
 type AppState int
 
 const (
-	MainView AppState = iota
-	ListView
+	ListView AppState = iota
 	CreationView
 	ErrView
 )
@@ -57,9 +56,9 @@ func deleteTaskCmd(repo tasks.TaskRepository, id int) tea.Cmd {
 	}
 }
 
-func toogleTaskCmd(repo tasks.TaskRepository, id int, completed bool) tea.Cmd {
+func toggleCompletedCmd(repo tasks.TaskRepository, id int, completed bool) tea.Cmd {
 	return func() tea.Msg {
-		err := repo.Toogle(id, completed)
+		err := repo.ToggleCompleted(id, completed)
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -75,7 +74,7 @@ type deleteTaskMsg struct {
 	id int
 }
 
-type toogleTaskMsg struct {
+type toggleCompletedMsg struct {
 	id        int
 	completed bool
 }
@@ -101,22 +100,14 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "q":
-			if m.currentState == MainView {
+			if m.currentState == ListView {
 				return m, tea.Quit
-			} else if m.currentState == ListView {
-				m.currentState = MainView
-				return m, nil
 			} else if m.currentState == ErrView {
 				m.currentState = m.previuosState
 				return m, nil
 			}
-		case "l":
-			if m.currentState == MainView {
-				m.currentState = ListView
-				return m, nil
-			}
 		case "c":
-			if m.currentState == MainView {
+			if m.currentState == ListView {
 				m.currentState = CreationView
 				return m, nil
 			}
@@ -125,8 +116,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case deleteTaskMsg:
 		cmds = append(cmds, deleteTaskCmd(m.repo, msg.id))
 
-	case toogleTaskMsg:
-		cmds = append(cmds, toogleTaskCmd(m.repo, msg.id, msg.completed))
+	case toggleCompletedMsg:
+		cmds = append(cmds, toggleCompletedCmd(m.repo, msg.id, msg.completed))
 
 	case fetchedTasksMsg:
 		m.tasks = msg.Tasks
@@ -164,7 +155,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.listModel.Method == "toogle" {
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
-				return toogleTaskMsg{id: m.listModel.Selected.ID(), completed: m.listModel.Selected.Completed()}
+				return toggleCompletedMsg{id: m.listModel.Selected.ID(), completed: m.listModel.Selected.Completed()}
 			})
 
 		}
@@ -190,8 +181,6 @@ func (m MainModel) View() string {
 		return m.listModel.View()
 	case CreationView:
 		return m.creationModel.View()
-	case MainView:
-		return "Press l - list view\nPress c - create task\nPress q to exit\n"
 	case ErrView:
 		return m.err.Error()
 	default:
@@ -204,7 +193,7 @@ func InitialMainModel(repo tasks.TaskRepository) MainModel {
 	creationModel := components.InitialCreationModel()
 
 	m := MainModel{
-		currentState:  MainView,
+		currentState:  ListView,
 		listModel:     listModel,
 		creationModel: creationModel,
 
