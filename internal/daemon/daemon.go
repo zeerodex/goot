@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zeerodex/go-todo-tui/internal/tasks"
+	"github.com/zeerodex/goot/internal/tasks"
 )
 
 type TaskProcessor struct {

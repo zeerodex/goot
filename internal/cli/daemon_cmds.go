@@ -2,8 +2,8 @@ package cli
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/zeerodex/go-todo-tui/internal/daemon"
-	"github.com/zeerodex/go-todo-tui/internal/tasks"
+	"github.com/zeerodex/goot/internal/daemon"
+	"github.com/zeerodex/goot/internal/tasks"
 )
 
 func NewDaemonCmd(repo tasks.TaskRepository) *cobra.Command {

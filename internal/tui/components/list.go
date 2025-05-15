@@ -4,7 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/zeerodex/go-todo-tui/internal/tasks"
+	"github.com/zeerodex/goot/internal/tasks"
 )
 
 type ListErrorMsg struct {

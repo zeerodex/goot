@@ -1,4 +1,4 @@
-module github.com/zeerodex/go-todo-tui
+module github.com/zeerodex/goot
 
 go 1.24.2
 

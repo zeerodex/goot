@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"github.com/zeerodex/go-todo-tui/internal/tasks"
-	"github.com/zeerodex/go-todo-tui/pkg/timeutil"
+	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/pkg/timeutil"
 )
 
 func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {

@@ -2,8 +2,8 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/zeerodex/go-todo-tui/internal/tasks"
-	"github.com/zeerodex/go-todo-tui/internal/tui/components"
+	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/internal/tui/components"
 )
 
 type AppState int

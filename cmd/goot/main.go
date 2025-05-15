@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	cmd "github.com/zeerodex/go-todo-tui/internal/cli"
-	"github.com/zeerodex/go-todo-tui/internal/database"
-	"github.com/zeerodex/go-todo-tui/internal/tasks"
+	cmd "github.com/zeerodex/goot/internal/cli"
+	"github.com/zeerodex/goot/internal/database"
+	"github.com/zeerodex/goot/internal/tasks"
 )
 
 func main() {
