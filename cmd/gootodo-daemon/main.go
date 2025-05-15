@@ -2,109 +2,114 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/zeerodex/go-todo-tui/internal/database"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
 )
 
-type contextKey string
-
-var tasksKey contextKey = "tasks"
-
 type TaskProcessor struct {
 	repo         tasks.TaskRepository
-	batchSize    int
 	timeWindow   time.Duration
 	pollInterval time.Duration
 }
 
-func NewTaskProcessor(repo tasks.TaskRepository, batchSize int, timeWindow, pollInterval time.Duration) *TaskProcessor {
-	return &TaskProcessor{repo: repo, batchSize: batchSize, timeWindow: timeWindow, pollInterval: pollInterval}
+func NewTaskProcessor(repo tasks.TaskRepository, timeWindow, pollInterval time.Duration) *TaskProcessor {
+	return &TaskProcessor{repo: repo, timeWindow: timeWindow, pollInterval: pollInterval}
 }
 
 func (tp *TaskProcessor) Start(ctx context.Context) {
 	ticker := time.NewTicker(tp.pollInterval)
 	defer ticker.Stop()
 
+	log.Printf("[INFO] Task processor started\npollInterval: %s\ntimeWindow:%s", tp.pollInterval, tp.timeWindow)
+
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("Tick")
-			ctx, err := tp.FetchTasks(ctx)
-			fmt.Println(ctx.Value(tasksKey))
+			log.Println("[DEBUG] Tick")
+			tasks, err := tp.FetchTasks()
 			if err != nil {
-				log.Printf("error fetching tasks: %v", err)
+				log.Printf("[ERROR] Failed to fetch tasks: %v", err)
 			}
-
-			tp.ProcessTasks(ctx)
+			if err = tp.ProcessTasks(tasks); err != nil {
+				log.Printf("[ERROR] Failed to process tasks: %v", err)
+			}
 		case <-ctx.Done():
-			log.Println("Daemon shutting down...")
 			return
 		}
 	}
 }
 
-func (tp *TaskProcessor) ProcessTasks(ctx context.Context) (context.Context, error) {
-	tasks := ctx.Value(tasksKey).(tasks.Tasks)
+func (tp *TaskProcessor) ProcessTasks(tasks tasks.Tasks) error {
 	if len(tasks) < 1 {
-		return nil, errors.New("no tasks")
+		log.Println("[DEBUG] No pending tasks")
+		return nil
 	}
+	now := time.Now()
+	now = now.Truncate(time.Minute)
 	for _, task := range tasks {
-		go SendTaskDueNofitication(task)
+		timeDiff := now.Sub(task.Due)
+		if timeDiff >= 0 && timeDiff <= time.Minute && !task.Notified {
+			go tp.SendTaskDueNofitication(task)
+			if err := tp.repo.MarkAsNotified(task.ID); err != nil {
+				return fmt.Errorf("error marking task ID %d as notified: %w", task.ID, err)
+			}
+			log.Printf("[INFO] Task ID %d has been processed", task.ID)
+		}
 	}
-	return ctx, nil
+	return nil
 }
 
-func (tp *TaskProcessor) FetchTasks(ctx context.Context) (context.Context, error) {
+func (tp *TaskProcessor) FetchTasks() (tasks.Tasks, error) {
 	now := time.Now()
+	now = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, now.Location())
+
 	minTime := now.Add(-tp.timeWindow)
 	maxTime := now.Add(tp.timeWindow)
 
-	tasks, err := tp.repo.GetByDueWithWindow(minTime, maxTime, tp.batchSize)
+	tasks, err := tp.repo.GetPendingTasks(minTime, maxTime)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task: %w", err)
+		return nil, fmt.Errorf("error fetching tasks: %w", err)
 	}
 
-	ctx = context.WithValue(ctx, tasksKey, tasks)
-	return ctx, nil
+	return tasks, nil
 }
 
-func SendTaskDueNofitication(task tasks.Task) error {
+func (tp TaskProcessor) SendTaskDueNofitication(task tasks.Task) {
 	icon := "task-due-symbolic"
-	cmd := exec.Command("notify-send", task.Title, task.Description, "-i", icon)
+	cmd := exec.Command("notify-send", "Task due!", task.Title, "-i", icon)
 	err := cmd.Run()
 	if err != nil {
-		return err
+		log.Printf("[ERROR] Failed to send notification for task ID %d: %v", task.ID, err)
+		return
 	}
-	return nil
+	log.Printf("[INFO] Notification sent for task ID %d", task.ID)
 }
 
 func main() {
 	db, err := database.InitDB()
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("[ERROR] Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	tp := NewTaskProcessor(tasks.NewTaskRepository(db), 5, time.Minute, 5*time.Second)
-
-	sigs := make(chan os.Signal, 1)
-
-	signal.Notify(sigs, os.Interrupt)
+	tp := NewTaskProcessor(tasks.NewTaskRepository(db), time.Minute, time.Minute)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 	go tp.Start(ctx)
 
-	<-sigs
-	log.Println("Interrupt received, shutting down...")
+	log.Printf("[INFO] Signal received: %s, shutting down...", <-sigs)
 	cancel()
 }

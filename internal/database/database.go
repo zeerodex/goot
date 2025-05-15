@@ -24,7 +24,8 @@ func InitDB() (*sql.DB, error) {
 	title TEXT,
 	description TEXT,
 	due TEXT,
-	completed BOOl)`
+	completed BOOl,
+	notified BOOLEAN DEFAULT 0)`
 
 	_, err = db.Exec(stmt)
 	if err != nil {
