@@ -50,7 +50,17 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 		Args:  cobra.RangeArgs(2, 4),
 		Run: func(cmd *cobra.Command, args []string) {
 			var task tasks.Task
+			// TODO: max length to cfg
+			if len(args[0]) > 1024 {
+				fmt.Println("Length of title is up to 1024 characters")
+				return
+			}
 			task.Title = args[0]
+			if len(description) > 8192 {
+				fmt.Println("Length of description is up to 8192 characters")
+				return
+
+			}
 			task.Description = description
 
 			var dueStr string

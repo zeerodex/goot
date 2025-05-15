@@ -47,12 +47,12 @@ func InitialCreationModel() CreationModel {
 		switch i {
 		case 0:
 			t.Focus()
-			t.Placeholder = "Title (Required)"
-			t.CharLimit = 156
+			t.Placeholder = "Title"
+			t.CharLimit = 1024
 			t.Width = 50
 		case 1:
 			t.Placeholder = "Description (Not required)"
-			t.CharLimit = 156
+			t.CharLimit = 8192
 			t.Width = 50
 		case 2:
 			t.Placeholder = "Due [YYYY-MM-DD (HH:MM)] (Today by default)"
@@ -85,9 +85,15 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				due, err := timeutil.ParseAndValidateTimestamp(m.inputs[2].Value())
 				if m.inputs[0].Value() == "" {
 					m.inputs[0].Placeholder = "Task title cannot be empty"
+				} else if len(m.inputs[0].Value()) > 1024 {
+					m.inputs[0].SetValue("")
+					m.inputs[0].Placeholder = "Length of title is up to 1024 characters"
+				} else if len(m.inputs[1].Value()) > 8192 {
+					m.inputs[0].SetValue("")
+					m.inputs[0].Placeholder = "Length of description is up to 1024 characters"
 				} else if err != nil {
 					m.inputs[2].SetValue("")
-					m.inputs[2].Placeholder = err.Error()
+					m.inputs[2].Placeholder = strings.ToUpper(err.Error()[:1]) + err.Error()[1:]
 				} else {
 					m.Done = true
 

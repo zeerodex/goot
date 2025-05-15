@@ -74,6 +74,10 @@ func ParseAndValidateTimestamp(datetimeStr string) (time.Time, error) {
 	datetimeStr = strings.TrimSpace(datetimeStr)
 	datetimeStr = strings.ToLower(datetimeStr)
 	dateStr, timeStr := SeparateDateAndTime(datetimeStr)
+	// HACK:
+	if dateStr == "" {
+		dateStr = time.Now().Format(dateLayout)
+	}
 
 	timestampDate, err := ParseAndValidateDate(dateStr)
 	if err != nil {
