@@ -1,9 +1,12 @@
 package components
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
@@ -19,6 +22,7 @@ type item struct {
 
 func (i item) ID() int             { return i.id }
 func (i item) Title() string       { return i.title }
+func (i item) TitleOnly() string   { return strings.Fields(i.title)[0] }
 func (i item) Description() string { return i.desc }
 func (i item) Completed() bool     { return i.completed }
 func (i item) FilterValue() string { return i.title }
@@ -33,15 +37,15 @@ func newListKeyMap() *listKeyMap {
 	return &listKeyMap{
 		createTask: key.NewBinding(
 			key.WithKeys("c"),
-			key.WithHelp("c", "create task"),
+			key.WithHelp("c", "create"),
 		),
 		deleteTask: key.NewBinding(
 			key.WithKeys("d"),
-			key.WithHelp("d", "delete task"),
+			key.WithHelp("d", "delete"),
 		),
 		toogleComplete: key.NewBinding(
 			key.WithKeys("t"),
-			key.WithHelp("t", "toogle task completion"),
+			key.WithHelp("t", "toggle completed"),
 		),
 	}
 }
@@ -86,7 +90,7 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.deleteTask):
 			m.Method = "delete"
 			selected := m.list.SelectedItem().(item)
-			statusCmd := m.list.NewStatusMessage("Deleted " + selected.Title())
+			statusCmd := m.list.NewStatusMessage("Deleted " + selected.TitleOnly())
 			m.Selected = selected
 			return m, statusCmd
 		case key.Matches(msg, m.keys.createTask):
@@ -95,7 +99,7 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.toogleComplete):
 			m.Method = "toogle"
 			selected := m.list.SelectedItem().(item)
-			statusCmd := m.list.NewStatusMessage("Toogle completed for" + selected.Title())
+			statusCmd := m.list.NewStatusMessage("Toggle completed for " + selected.TitleOnly())
 			m.Selected = selected
 			return m, statusCmd
 		}
