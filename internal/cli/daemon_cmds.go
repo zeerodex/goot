@@ -1,0 +1,19 @@
+package cli
+
+import (
+	"github.com/spf13/cobra"
+	"github.com/zeerodex/go-todo-tui/internal/daemon"
+	"github.com/zeerodex/go-todo-tui/internal/tasks"
+)
+
+func NewDaemonCmd(repo tasks.TaskRepository) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "daemon",
+		Short: "Start a daemon of gootodo",
+		Args:  cobra.ExactArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			daemon.StartDaemon(repo)
+		},
+	}
+	return cmd
+}

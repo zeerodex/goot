@@ -11,6 +11,7 @@ type Task struct {
 	Description string    `json:"description,omitempty"`
 	Due         time.Time `json:"due"`
 	Completed   bool      `json:"status"`
+	Notified    bool      `json:"notified"`
 }
 
 type Tasks []Task
