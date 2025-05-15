@@ -32,6 +32,8 @@ func Execute(repo tasks.TaskRepository) {
 	rootCmd.AddCommand(NewAllTasksCmd(repo))
 	rootCmd.AddCommand(NewDeleteTaskCmd(repo))
 
+	rootCmd.AddCommand(NewDaemonCmd(repo))
+
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)

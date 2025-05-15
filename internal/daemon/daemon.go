@@ -1,4 +1,4 @@
-package main
+package daemon
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zeerodex/go-todo-tui/internal/database"
 	"github.com/zeerodex/go-todo-tui/internal/tasks"
 )
 
@@ -93,19 +92,14 @@ func (tp TaskProcessor) SendTaskDueNofitication(task tasks.Task) {
 	log.Printf("[INFO] Notification sent for task ID %d", task.ID)
 }
 
-func main() {
-	db, err := database.InitDB()
-	if err != nil {
-		log.Fatalf("[ERROR] Failed to connect to database: %v", err)
-	}
-	defer db.Close()
-
-	tp := NewTaskProcessor(tasks.NewTaskRepository(db), time.Minute, time.Minute)
+func StartDaemon(repo tasks.TaskRepository) {
+	tp := NewTaskProcessor(repo, time.Minute, time.Minute)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sigs := make(chan os.Signal, 1)
+	// TODO: SIGHUP
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go tp.Start(ctx)
