@@ -10,23 +10,31 @@ import (
 	"github.com/zeerodex/goot/internal/tui"
 )
 
-func newRootCmd(repo tasks.TaskRepository) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "gootodo",
-		Short: "A brief description of your application",
+func newRootCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "goot",
+		Short: "Sleek cli/tui task manager with APIs integration",
 		Run: func(cmd *cobra.Command, args []string) {
-			if _, err := tea.NewProgram(tui.InitialMainModel(repo)).Run(); err != nil {
-				fmt.Println("Error running program:", err)
-				os.Exit(1)
-			}
+			cmd.Help()
 		},
 	}
-	cmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	return cmd
+}
+
+func NewTuiCmd(repo tasks.TaskRepository) *cobra.Command {
+	return &cobra.Command{
+		Use:   "tui",
+		Short: "A brief description of your application",
+		Run: func(cmd *cobra.Command, args []string) {
+			_, err := tea.NewProgram(tui.InitialMainModel(repo)).Run()
+			cobra.CheckErr(err)
+		},
+	}
 }
 
 func Execute(repo tasks.TaskRepository) {
-	rootCmd := newRootCmd(repo)
+	rootCmd := newRootCmd()
+
+	rootCmd.AddCommand(NewTuiCmd(repo))
 
 	rootCmd.AddCommand(NewCreateCmd(repo))
 	rootCmd.AddCommand(NewAllTasksCmd(repo))

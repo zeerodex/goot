@@ -88,7 +88,7 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 
 			err = repo.Create(task.Title, task.Description, task.Due)
 			if err != nil {
-				fmt.Printf("Error creating task:%v", err)
+				fmt.Printf("Error creating task: %v", err)
 				return
 			}
 			// HACK:
@@ -113,6 +113,7 @@ func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 			err = repo.DeleteByID(id)
 			if err != nil {
 				fmt.Println(err)
+				return
 			}
 		},
 	}
