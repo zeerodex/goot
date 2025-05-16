@@ -102,9 +102,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			switch m.currentState {
 			case CreationView:
-				m.currentState = ListView
-				return m, nil
+				m.currentState = m.previuosState
 			}
+			return m, nil
 		case "q":
 			switch m.currentState {
 			case ListView:
@@ -185,9 +185,8 @@ func (m MainModel) View() string {
 		return m.creationModel.View()
 	case ErrView:
 		return m.err.Error()
-	default:
-		return "Press l - list view\nPress q to exit\n"
 	}
+	return ""
 }
 
 func InitialMainModel(repo tasks.TaskRepository) MainModel {

@@ -137,14 +137,25 @@ func NewDoneTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 	return &cobra.Command{
 		Use:   "done [task id]",
 		Short: "Marks task completed",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.RangeArgs(0, 1),
 		Run: func(cmd *cobra.Command, args []string) {
-			id, err := strconv.Atoi(args[0])
-			if err != nil {
-				fmt.Printf("Incorrect task id: %v", err)
-				return
+			var id int
+			if len(args) == 0 {
+				tasks, err := repo.GetAll()
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				id = tui.ChooseList(tasks)
+			} else {
+				var err error
+				id, err = strconv.Atoi(args[0])
+				if err != nil {
+					fmt.Printf("Incorrect task id: %v", err)
+					return
+				}
 			}
-			err = repo.ToggleCompleted(id, false)
+			err := repo.ToggleCompleted(id, false)
 			if err != nil {
 				fmt.Printf("Failed to mark task completed: %v", err)
 				return

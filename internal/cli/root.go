@@ -10,12 +10,13 @@ import (
 	"github.com/zeerodex/goot/internal/tui"
 )
 
-func newRootCmd() *cobra.Command {
+func newRootCmd(repo tasks.TaskRepository) *cobra.Command {
 	return &cobra.Command{
 		Use:   "goot",
 		Short: "Sleek cli/tui task manager with APIs integration",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+			_, err := tea.NewProgram(tui.InitialMainModel(repo)).Run()
+			cobra.CheckErr(err)
 		},
 	}
 }
@@ -32,7 +33,7 @@ func NewTuiCmd(repo tasks.TaskRepository) *cobra.Command {
 }
 
 func Execute(repo tasks.TaskRepository) {
-	rootCmd := newRootCmd()
+	rootCmd := newRootCmd(repo)
 
 	rootCmd.AddCommand(NewTuiCmd(repo))
 
