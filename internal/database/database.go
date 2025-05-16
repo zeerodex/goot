@@ -20,7 +20,7 @@ func InitDB() (*sql.DB, error) {
 
 	stmt := `
 	CREATE TABLE IF NOT EXISTS tasks (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	id INTEGER PRIMARY KEY,
 	title TEXT,
 	description TEXT,
 	due TEXT,

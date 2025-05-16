@@ -31,6 +31,7 @@ func Execute(repo tasks.TaskRepository) {
 	rootCmd.AddCommand(NewCreateCmd(repo))
 	rootCmd.AddCommand(NewAllTasksCmd(repo))
 	rootCmd.AddCommand(NewDeleteTaskCmd(repo))
+	rootCmd.AddCommand(NewDoneTaskCmd(repo))
 
 	rootCmd.AddCommand(NewDaemonCmd(repo))
 
