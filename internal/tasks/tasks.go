@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -38,4 +39,18 @@ func (t *Task) SetDue(dueStr string) error {
 	}
 	t.Due = due
 	return nil
+}
+
+func (t Task) FullTitle() string {
+	var title string
+	title += strconv.Itoa(t.ID) + " | "
+	title += t.Title
+	if t.Completed {
+		title += " | " + t.DueStr()
+		title += " | Completed"
+	} else {
+		title += " | " + t.DueStr()
+		title += " | Uncompleted"
+	}
+	return title
 }

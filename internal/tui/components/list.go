@@ -83,15 +83,7 @@ type ListModel struct {
 func (m *ListModel) SetTasks(tasks tasks.Tasks) tea.Cmd {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
-		title := task.Title
-		if task.Completed {
-			title += " | Completed"
-			title += " | " + task.DueStr()
-		} else {
-			title += " | Uncompleted"
-			title += " | " + task.DueStr()
-		}
-		items[i] = item{id: task.ID, title: title, desc: task.Description, completed: task.Completed}
+		items[i] = item{id: task.ID, title: task.FullTitle(), desc: task.Description, completed: task.Completed}
 	}
 	return m.list.SetItems(items)
 }

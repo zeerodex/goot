@@ -7,7 +7,9 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+
 	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/internal/tui"
 	"github.com/zeerodex/goot/pkg/timeutil"
 )
 
@@ -103,14 +105,25 @@ func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rm [task id]",
 		Short: "Deletes a task",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.RangeArgs(0, 1),
 		Run: func(cmd *cobra.Command, args []string) {
-			id, err := strconv.Atoi(args[0])
-			if err != nil {
-				fmt.Printf("Incorrect task id: %v", err)
-				return
+			var id int
+			if len(args) == 0 {
+				tasks, err := repo.GetAll()
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				id = tui.ChooseList(tasks)
+			} else {
+				var err error
+				id, err = strconv.Atoi(args[0])
+				if err != nil {
+					fmt.Printf("Incorrect task id: %v", err)
+					return
+				}
 			}
-			err = repo.DeleteByID(id)
+			err := repo.DeleteByID(id)
 			if err != nil {
 				fmt.Println(err)
 				return
