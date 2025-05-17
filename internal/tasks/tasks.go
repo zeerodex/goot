@@ -2,14 +2,14 @@ package tasks
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	gtasks "google.golang.org/api/tasks/v1"
 )
 
 type Task struct {
-	ID          int       `json:"id"`
+	ID          int `json:"id"`
+	GoogleID    string
 	Title       string    `json:"title"`
 	Description string    `json:"description,omitempty"`
 	Due         time.Time `json:"due"`
@@ -62,13 +62,13 @@ func (t *Task) SetDue(dueStr string) error {
 
 func (t Task) FullTitle() string {
 	var title string
-	title += strconv.Itoa(t.ID) + " | "
 	title += t.Title
-	if t.Completed {
+	if !t.Due.IsZero() {
 		title += " | " + t.DueStr()
+	}
+	if t.Completed {
 		title += " | Completed"
 	} else {
-		title += " | " + t.DueStr()
 		title += " | Uncompleted"
 	}
 	return title

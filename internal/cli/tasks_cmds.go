@@ -114,7 +114,7 @@ func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 					fmt.Println(err)
 					return
 				}
-				id = tui.ChooseList(tasks)
+				id = tui.ChooseTask(tasks)
 			} else {
 				var err error
 				id, err = strconv.Atoi(args[0])
@@ -146,7 +146,7 @@ func NewDoneTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 					fmt.Println(err)
 					return
 				}
-				id = tui.ChooseList(tasks)
+				id = tui.ChooseTask(tasks)
 			} else {
 				var err error
 				id, err = strconv.Atoi(args[0])

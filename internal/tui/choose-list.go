@@ -3,7 +3,9 @@ package tui
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -100,10 +102,18 @@ func (m ChoiceListModel) View() string {
 	return m.list.View()
 }
 
-func ChooseList(tasks tasks.Tasks) string {
+func chooseTask(tasks tasks.Tasks, p string) string {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
-		item := item{id: task.ID, title: task.FullTitle()}
+		var item item
+		item.title = task.FullTitle()
+		switch p {
+		case "gtasks":
+			item.id = task.GoogleID
+		case "tasks":
+			item.id = strconv.Itoa(task.ID)
+		}
+
 		items[i] = item
 	}
 
@@ -132,4 +142,17 @@ func ChooseList(tasks tasks.Tasks) string {
 		return final.choice
 	}
 	return ""
+}
+
+func ChooseGTask(tasks tasks.Tasks) string {
+	return chooseTask(tasks, "gtasks")
+}
+
+func ChooseTask(tasks tasks.Tasks) int {
+	strId := chooseTask(tasks, "tasks")
+	id, err := strconv.Atoi(strId)
+	if err != nil {
+		log.Fatalf("Unabel to get task id: %v", err)
+	}
+	return id
 }

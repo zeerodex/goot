@@ -7,6 +7,7 @@ import (
 
 	"github.com/zeerodex/goot/internal/apis/gtasksapi"
 	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/internal/tui"
 )
 
 func NewGoogleCmds(api *gtasksapi.GTasksApi) *cobra.Command {
@@ -18,6 +19,7 @@ func NewGoogleCmds(api *gtasksapi.GTasksApi) *cobra.Command {
 	}
 	cmd.AddCommand(NewGetGTaskListsCmd(api))
 	cmd.AddCommand(NewGetGTasksCmd(api))
+	cmd.AddCommand(NewDeleteGTasksCmd(api))
 	return cmd
 }
 
@@ -45,24 +47,38 @@ func NewGetGTaskListsCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 
 func NewDeleteGTasksCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	return &cobra.Command{
-		Use:  "list",
-		Args: cobra.ExactArgs(0),
+		Use:  "rm",
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := api.GetTasks()
-			if err != nil {
-				return fmt.Errorf("unable to get tasks: %v", err)
-			}
-			if len(res.Items) > 0 {
-				var tasks tasks.Tasks
-				for _, t := range res.Items {
-					task, err := gtasksapi.ConvertGTask(t)
-					if err != nil {
-						return fmt.Errorf("unable to get tasks: %v", err)
+			var taskId string
+			if len(args) != 1 {
+				res, err := api.GetTasks()
+				if err != nil {
+					return fmt.Errorf("unable to get tasks: %v", err)
+				}
+				if len(res.Items) > 0 {
+					var tasks tasks.Tasks
+					for _, t := range res.Items {
+						task, err := gtasksapi.ConvertGTask(t)
+						if err != nil {
+							return fmt.Errorf("unable to get tasks: %v", err)
+						}
+						tasks = append(tasks, *task)
 					}
-					tasks = append(tasks, *task)
+					taskId = tui.ChooseGTask(tasks)
+					if taskId == "" {
+						return nil
+					}
+				} else {
+					fmt.Println("There is no tasks in gtasks.")
+					return nil
 				}
 			} else {
-				fmt.Println("There is no tasks in gtasks.")
+				taskId = args[0]
+			}
+			err := api.DeleteTaskById(taskId)
+			if err != nil {
+				return fmt.Errorf("unable to delete task: %v", err)
 			}
 			return nil
 		},

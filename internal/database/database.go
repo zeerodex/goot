@@ -21,6 +21,7 @@ func InitDB() (*sql.DB, error) {
 	stmt := `
 	CREATE TABLE IF NOT EXISTS tasks (
 	id INTEGER PRIMARY KEY,
+	google_id TEXT,
 	title TEXT,
 	description TEXT,
 	due TEXT,

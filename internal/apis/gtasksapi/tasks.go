@@ -54,6 +54,7 @@ func ConvertGTask(g *gtasks.Task) (*tasks.Task, error) {
 	var t tasks.Task
 	var err error
 
+	t.GoogleID = g.Id
 	t.Title = g.Title
 	t.Description = g.Notes
 	if g.Due != "" {
