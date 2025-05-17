@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zeerodex/goot/internal/apis/gtasksapi"
+	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui"
 )
@@ -17,13 +18,33 @@ func NewGoogleCmds(api *gtasksapi.GTasksApi) *cobra.Command {
 			fmt.Println("Please specify what you want to do. Use --help for options")
 		},
 	}
-	cmd.AddCommand(NewGetGTaskListsCmd(api))
-	cmd.AddCommand(NewGetGTasksCmd(api))
-	cmd.AddCommand(NewDeleteGTasksCmd(api))
+	cmd.AddCommand(newGetGTaskListsCmd(api))
+	cmd.AddCommand(newGetGTasksCmd(api))
+	cmd.AddCommand(newDeleteGTaskCmd(api))
+
+	cmd.AddCommand(newEnableSyncingCmd())
 	return cmd
 }
 
-func NewGetGTaskListsCmd(api *gtasksapi.GTasksApi) *cobra.Command {
+func newEnableSyncingCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync (on/off)",
+		Short: "Enables sync with google tasks api",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "on":
+				config.SetGoogleSync(true)
+			case "off":
+				config.SetGoogleSync(false)
+			default:
+				fmt.Println("Valid options are on/off")
+			}
+		},
+	}
+}
+
+func newGetGTaskListsCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	return &cobra.Command{
 		Use:  "get",
 		Args: cobra.ExactArgs(0),
@@ -45,7 +66,7 @@ func NewGetGTaskListsCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	}
 }
 
-func NewDeleteGTasksCmd(api *gtasksapi.GTasksApi) *cobra.Command {
+func newDeleteGTaskCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	return &cobra.Command{
 		Use:  "rm",
 		Args: cobra.RangeArgs(0, 1),
@@ -85,7 +106,7 @@ func NewDeleteGTasksCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	}
 }
 
-func NewGetGTasksCmd(api *gtasksapi.GTasksApi) *cobra.Command {
+func newGetGTasksCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	return &cobra.Command{
 		Use:  "list",
 		Args: cobra.ExactArgs(0),

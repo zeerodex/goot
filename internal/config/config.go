@@ -9,11 +9,12 @@ import (
 type Config struct {
 	APIs   []string `mapstructure:"apis"`
 	Google struct {
+		Sync   bool   `mapstructure:"sync"`
 		ListId string `mapstructure:"list-id"`
 	} `mapstructure:"google"`
 }
 
-func InitConfig(cfgPath string) (*Config, error) {
+func LoadConfig(cfgPath string) (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("json")
 	viper.AddConfigPath(cfgPath)
@@ -28,4 +29,9 @@ func InitConfig(cfgPath string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func SetGoogleSync(v bool) {
+	viper.Set("google.sync", v)
+	viper.WriteConfig()
 }

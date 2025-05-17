@@ -1,8 +1,7 @@
 package cli
 
 import (
-	"fmt"
-	"os"
+	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -25,29 +24,17 @@ func newRootCmd(repo tasks.TaskRepository) *cobra.Command {
 	}
 }
 
-func NewTuiCmd(repo tasks.TaskRepository) *cobra.Command {
-	return &cobra.Command{
-		Use:   "tui",
-		Short: "A brief description of your application",
-		Run: func(cmd *cobra.Command, args []string) {
-			_, err := tea.NewProgram(tui.InitialMainModel(repo)).Run()
-			cobra.CheckErr(err)
-		},
-	}
-}
-
 func Execute(repo tasks.TaskRepository, cfg *config.Config) {
 	rootCmd := newRootCmd(repo)
 
 	commands := []*cobra.Command{
-		NewTuiCmd(repo),
 		NewCreateCmd(repo),
 		NewAllTasksCmd(repo),
 		NewDeleteTaskCmd(repo),
 		NewDoneTaskCmd(repo),
+
 		NewDaemonCmd(repo),
 	}
-
 	rootCmd.AddCommand(commands...)
 
 	for _, api := range cfg.APIs {
@@ -60,7 +47,6 @@ func Execute(repo tasks.TaskRepository, cfg *config.Config) {
 
 	err := rootCmd.Execute()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }

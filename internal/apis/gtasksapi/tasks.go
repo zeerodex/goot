@@ -10,7 +10,8 @@ import (
 )
 
 type GTasksApi struct {
-	srv    *gtasks.Service
+	srv *gtasks.Service
+
 	ListId string
 }
 
@@ -18,7 +19,7 @@ func NewGTasksApi(listId string) *GTasksApi {
 	return &GTasksApi{srv: GetService(), ListId: listId}
 }
 
-func (api *GTasksApi) InsertTaskIntoList(task *gtasks.Task) error {
+func (api *GTasksApi) InsertTask(task *gtasks.Task) error {
 	_, err := api.srv.Tasks.Insert(api.ListId, task).Do()
 	if err != nil {
 		return fmt.Errorf("error inserting task into %s: %v", api.ListId, err)
