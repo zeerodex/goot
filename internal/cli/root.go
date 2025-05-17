@@ -44,6 +44,8 @@ func Execute(repo tasks.TaskRepository) {
 
 	rootCmd.AddCommand(NewDaemonCmd(repo))
 
+	rootCmd.AddCommand(NewGetGTasksCmd())
+
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)

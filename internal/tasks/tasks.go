@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	gtasks "google.golang.org/api/tasks/v1"
 )
 
 type Task struct {
@@ -16,6 +18,23 @@ type Task struct {
 }
 
 type Tasks []Task
+
+func ParseFromGtasks(g *gtasks.Task) Task {
+	var t Task
+	t.Title = g.Title
+	if g.Notes != "" {
+		t.Description = g.Notes
+	}
+	if g.Due != "" {
+		t.Due, _ = time.Parse(time.RFC3339, g.Due)
+	}
+	if g.Status == "completed" {
+		t.Completed = true
+	} else {
+		t.Completed = false
+	}
+	return t
+}
 
 func (t Task) Task() {
 	if t.Description != "" {
