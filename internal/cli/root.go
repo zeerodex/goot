@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+
+	"github.com/zeerodex/goot/internal/apis/gtasksapi"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui"
 )
@@ -44,7 +46,8 @@ func Execute(repo tasks.TaskRepository) {
 
 	rootCmd.AddCommand(NewDaemonCmd(repo))
 
-	rootCmd.AddCommand(NewGetGTasksCmd())
+	api := gtasksapi.NewGTasksApi()
+	rootCmd.AddCommand(NewGetGTasksCmd(api))
 
 	err := rootCmd.Execute()
 	if err != nil {

@@ -14,17 +14,19 @@ import (
 	"google.golang.org/api/tasks/v1"
 )
 
+var tokFile = "token.json"
+
 // Retrieve a token, saves the token, then returns the generated client.
-func getClient(config *oauth2.Config) *http.Client {
+func getClient() *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokFile := "token.json"
 	tok, err := tokenFromFile(tokFile)
 	if err != nil {
-		tok = getTokenFromWeb(config)
-		saveToken(tokFile, tok)
+		Login()
+		getClient()
 	}
+	config := getConfig()
 	return config.Client(context.Background(), tok)
 }
 
@@ -69,21 +71,32 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func GetService() *tasks.Service {
-	ctx := context.Background()
+func getConfig() *oauth2.Config {
 	b, err := os.ReadFile("credentials.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(b, tasks.TasksReadonlyScope)
+	config, err := google.ConfigFromJSON(b, tasks.TasksScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
-	client := getClient(config)
 
-	srv, err := tasks.NewService(ctx, option.WithHTTPClient(client))
+	return config
+}
+
+func Logout() {
+	os.Remove(tokFile)
+}
+
+func Login() {
+	tok := getTokenFromWeb(getConfig())
+	saveToken(tokFile, tok)
+}
+
+func GetService() *tasks.Service {
+	srv, err := tasks.NewService(context.Background(), option.WithHTTPClient(getClient()))
 	if err != nil {
 		log.Fatalf("Unable to retrieve tasks Client %v", err)
 	}

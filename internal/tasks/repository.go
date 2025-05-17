@@ -44,7 +44,7 @@ func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
 }
 
 func (r *taskRepository) GetAll() (Tasks, error) {
-	rows, err := r.db.Query("SELECT id, title, description, due, completed FROM tasks ORDER BY due")
+	rows, err := r.db.Query("SELECT id, title, description, due, completed FROM tasks ORDER BY completed, due")
 	if err != nil {
 		return nil, err
 	}
