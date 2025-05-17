@@ -10,25 +10,18 @@ import (
 )
 
 type GTasksApi struct {
-	srv *gtasks.Service
+	srv    *gtasks.Service
+	ListId string
 }
 
-func NewGTasksApi() *GTasksApi {
-	return &GTasksApi{srv: GetService()}
+func NewGTasksApi(listId string) *GTasksApi {
+	return &GTasksApi{srv: GetService(), ListId: listId}
 }
 
-func (api *GTasksApi) InsertTaskIntoDefault(task *gtasks.Task) error {
-	_, err := api.srv.Tasks.Insert("@default", task).Do()
+func (api *GTasksApi) InsertTaskIntoList(task *gtasks.Task) error {
+	_, err := api.srv.Tasks.Insert(api.ListId, task).Do()
 	if err != nil {
-		return fmt.Errorf("error inserting task into default: %v", err)
-	}
-	return nil
-}
-
-func (api *GTasksApi) InsertTaskIntoList(task *gtasks.Task, listId string) error {
-	_, err := api.srv.Tasks.Insert(listId, task).Do()
-	if err != nil {
-		return fmt.Errorf("error inserting task into %s: %v", listId, err)
+		return fmt.Errorf("error inserting task into %s: %v", api.ListId, err)
 	}
 	return nil
 }
@@ -41,24 +34,16 @@ func (api *GTasksApi) GetTasksLists() (*gtasks.TaskLists, error) {
 	return lists, nil
 }
 
-func (api *GTasksApi) GetTasksFromDefault() (*gtasks.Tasks, error) {
-	tasks, err := api.srv.Tasks.List("@default").Do()
+func (api *GTasksApi) GetTasks() (*gtasks.Tasks, error) {
+	tasks, err := api.srv.Tasks.List(api.ListId).Do()
 	if err != nil {
-		return nil, fmt.Errorf("error fetching tasks from default: %v", err)
+		return nil, fmt.Errorf("error fetching tasks from %s: %v", api.ListId, err)
 	}
 	return tasks, nil
 }
 
-func (api *GTasksApi) GetTasksFromCustom(listId string) (*gtasks.Tasks, error) {
-	tasks, err := api.srv.Tasks.List(listId).Do()
-	if err != nil {
-		return nil, fmt.Errorf("error fetching tasks from %s: %v", listId, err)
-	}
-	return tasks, nil
-}
-
-func (api *GTasksApi) DeleteTaskFromDefaultById(taskId string) error {
-	err := api.srv.Tasks.Delete("@default", taskId).Do()
+func (api *GTasksApi) DeleteTaskById(taskId string) error {
+	err := api.srv.Tasks.Delete(api.ListId, taskId).Do()
 	if err != nil {
 		return fmt.Errorf("error deleting task %s from default list: %v", taskId, err)
 	}

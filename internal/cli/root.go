@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zeerodex/goot/internal/apis/gtasksapi"
+	gtaskscmds "github.com/zeerodex/goot/internal/cli/apis/gtasks_cmds"
+	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui"
 )
@@ -34,20 +36,27 @@ func NewTuiCmd(repo tasks.TaskRepository) *cobra.Command {
 	}
 }
 
-func Execute(repo tasks.TaskRepository) {
+func Execute(repo tasks.TaskRepository, cfg *config.Config) {
 	rootCmd := newRootCmd(repo)
 
-	rootCmd.AddCommand(NewTuiCmd(repo))
+	commands := []*cobra.Command{
+		NewTuiCmd(repo),
+		NewCreateCmd(repo),
+		NewAllTasksCmd(repo),
+		NewDeleteTaskCmd(repo),
+		NewDoneTaskCmd(repo),
+		NewDaemonCmd(repo),
+	}
 
-	rootCmd.AddCommand(NewCreateCmd(repo))
-	rootCmd.AddCommand(NewAllTasksCmd(repo))
-	rootCmd.AddCommand(NewDeleteTaskCmd(repo))
-	rootCmd.AddCommand(NewDoneTaskCmd(repo))
+	rootCmd.AddCommand(commands...)
 
-	rootCmd.AddCommand(NewDaemonCmd(repo))
-
-	api := gtasksapi.NewGTasksApi()
-	rootCmd.AddCommand(NewGetGTasksCmd(api))
+	for _, api := range cfg.APIs {
+		switch api {
+		case "google":
+			api := gtasksapi.NewGTasksApi(cfg.Google.ListId)
+			rootCmd.AddCommand(gtaskscmds.NewGoogleCmds(api))
+		}
+	}
 
 	err := rootCmd.Execute()
 	if err != nil {

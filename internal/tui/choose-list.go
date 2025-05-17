@@ -26,7 +26,7 @@ var (
 )
 
 type item struct {
-	id    int
+	id    string
 	title string
 }
 
@@ -56,7 +56,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 type ChoiceListModel struct {
 	list     list.Model
-	choice   int
+	choice   string
 	quitting bool
 }
 
@@ -91,8 +91,8 @@ func (m ChoiceListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m ChoiceListModel) View() string {
-	if m.choice != 0 {
-		return quitTextStyle.Render(fmt.Sprintf("%d? Sounds good to me.", m.choice))
+	if m.choice != "" {
+		return quitTextStyle.Render(fmt.Sprintf("%s? Sounds good to me.", m.choice))
 	}
 	if m.quitting {
 		return quitTextStyle.Render("Not hungry? That’s cool.")
@@ -100,7 +100,7 @@ func (m ChoiceListModel) View() string {
 	return m.list.View()
 }
 
-func ChooseList(tasks tasks.Tasks) int {
+func ChooseList(tasks tasks.Tasks) string {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
 		item := item{id: task.ID, title: task.FullTitle()}
@@ -127,9 +127,9 @@ func ChooseList(tasks tasks.Tasks) int {
 
 	if final, ok := finalModel.(ChoiceListModel); ok {
 		if final.quitting {
-			return -1
+			return ""
 		}
 		return final.choice
 	}
-	return -1
+	return ""
 }
