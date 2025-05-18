@@ -40,7 +40,7 @@ func fetchTasksCmd(s services.TaskService) tea.Cmd {
 
 func createTaskCmd(s services.TaskService, task tasks.Task) tea.Cmd {
 	return func() tea.Msg {
-		_, err := s.CreateTask(task)
+		_, err := s.CreateTask(&task)
 		if err != nil {
 			return errMsg{err: err}
 		}

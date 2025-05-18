@@ -3,13 +3,14 @@ package repositories
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
 type TaskRepository interface {
-	CreateTask(task string, description string, due time.Time) error
+	CreateTask(task *tasks.Task) (*tasks.Task, error)
 	GetAllTasks() (tasks.Tasks, error)
 	GetTaskByID(id int) (*tasks.Task, error)
 	GetTaskByDue(due time.Time) (tasks.Task, error)
@@ -19,6 +20,7 @@ type TaskRepository interface {
 	DeleteTaskByTitle(title string) error
 	ToggleCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
+	GetTaskGoogleID(id int) (string, error)
 }
 
 type taskRepository struct {
@@ -29,18 +31,30 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 	return &taskRepository{db: db}
 }
 
-func (r *taskRepository) CreateTask(task string, description string, due time.Time) error {
-	_, err := r.db.Exec("INSERT INTO tasks (title, description, completed, due) VALUES (?, ?, ?, ?)", task, description, false, due.Format(time.RFC3339))
+func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
+	row, err := r.db.Exec(
+		"INSERT INTO tasks (google_id, title, description, completed, due) VALUES (?, ?, ?, ?, ?)",
+		task.GoogleID,
+		task.Title,
+		task.Description,
+		false,
+		task.Due.Format(time.RFC3339))
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("unable to create task '%s': %w", task.Title, err)
 	}
-	return nil
+
+	id, err := row.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get last insert id of task %s: %w", task.Title, err)
+	}
+	task.ID = int(id)
+	return task, nil
 }
 
 func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
 	_, err := r.db.Exec("UPDATE tasks SET completed = ? WHERE id = ?", !completed, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to toggle complete for task ID %d: %w", id, err)
 	}
 	return nil
 }
@@ -48,7 +62,7 @@ func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
 func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 	rows, err := r.db.Query("SELECT id, title, description, due, completed FROM tasks ORDER BY completed, due")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to get all tasks: %w", err)
 	}
 	defer rows.Close()
 
@@ -68,6 +82,18 @@ func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 		tasksList = append(tasksList, task)
 	}
 	return tasksList, nil
+}
+
+func (r *taskRepository) GetTaskGoogleID(id int) (string, error) {
+	row := r.db.QueryRow("SELECT google_id FROM tasks WHERE id = ?", id)
+
+	var googleId string
+	err := row.Scan(&googleId)
+	if err != nil {
+		return "", fmt.Errorf("unable to get google id by id %d: %w", id, err)
+	}
+
+	return googleId, nil
 }
 
 func (r *taskRepository) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error) {

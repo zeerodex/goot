@@ -20,12 +20,13 @@ func NewGTasksApi(listId string) apis.API {
 	return &GTasksApi{srv: GetService(), ListId: listId}
 }
 
-func (api *GTasksApi) CreateTask(task *tasks.Task) (tasks.Task, error) {
+func (api *GTasksApi) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	gtask, err := api.srv.Tasks.Insert(api.ListId, task.GTask()).Do()
 	if err != nil {
-		return tasks.Task{}, fmt.Errorf("error inserting task into %s: %v", api.ListId, err)
+		return nil, fmt.Errorf("error inserting task into %s: %v", api.ListId, err)
 	}
-	return ConvertGTask(gtask), nil
+	task.GoogleID = gtask.Id
+	return task, nil
 }
 
 func (api *GTasksApi) GetTaskByID(id string) (tasks.Task, error) {
@@ -64,7 +65,7 @@ func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
 func (api *GTasksApi) DeleteTaskByID(taskId string) error {
 	err := api.srv.Tasks.Delete(api.ListId, taskId).Do()
 	if err != nil {
-		return fmt.Errorf("error deleting task %s from default list: %v", taskId, err)
+		return fmt.Errorf("error deleting task %s from gtasks: %v", taskId, err)
 	}
 	return nil
 }

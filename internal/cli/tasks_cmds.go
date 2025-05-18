@@ -89,12 +89,12 @@ func NewCreateCmd(s services.TaskService) *cobra.Command {
 			}
 			task.Due = due
 
-			createdTask, err := s.CreateTask(task)
+			_, err = s.CreateTask(&task)
 			if err != nil {
 				fmt.Printf("Error creating task: %v", err)
 				return
 			}
-			fmt.Println(createdTask.Task())
+			fmt.Println(task.Task())
 		},
 	}
 	cmd.Flags().StringVarP(&dueTimeStr, "time", "t", "", "Due time (HH:MM)")

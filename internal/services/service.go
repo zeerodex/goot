@@ -9,7 +9,7 @@ import (
 )
 
 type TaskService interface {
-	CreateTask(task tasks.Task) (*tasks.Task, error)
+	CreateTask(task *tasks.Task) (*tasks.Task, error)
 	GetTaskByID(id int) (*tasks.Task, error)
 	GetAllTasks() (tasks.Tasks, error)
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
@@ -35,18 +35,18 @@ func (s *taskService) GetGApi() apis.API {
 	return s.gApi
 }
 
-func (s *taskService) CreateTask(task tasks.Task) (*tasks.Task, error) {
-	err := s.repo.CreateTask(task.Title, task.Description, task.Due)
-	if err != nil {
-		return nil, err
-	}
+func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	if s.gSync {
-		task, err = s.gApi.CreateTask(&task)
+		_, err := s.gApi.CreateTask(task)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &task, err
+	task, err := s.repo.CreateTask(task)
+	if err != nil {
+		return nil, err
+	}
+	return task, err
 }
 
 func (s *taskService) GetTaskByID(id int) (*tasks.Task, error) {
@@ -66,7 +66,25 @@ func (s *taskService) ToggleCompleted(id int, completed bool) error {
 }
 
 func (s *taskService) DeleteTaskByID(id int) error {
-	return s.repo.DeleteTaskByID(id)
+	if s.gSync {
+		googleId, err := s.repo.GetTaskGoogleID(id)
+		if err != nil {
+			return err
+		}
+		err = s.gApi.DeleteTaskByID(googleId)
+		if err != nil {
+			return err
+		}
+	}
+	err := s.repo.DeleteTaskByID(id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *taskService) GetTaskGoogleID(id int) (string, error) {
+	return s.repo.GetTaskGoogleID(id)
 }
 
 func (s *taskService) MarkAsNotified(id int) error {
