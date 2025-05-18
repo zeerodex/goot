@@ -19,29 +19,25 @@ type Task struct {
 
 type Tasks []Task
 
-func ParseFromGtasks(g *gtasks.Task) Task {
-	var t Task
-	t.Title = g.Title
-	if g.Notes != "" {
-		t.Description = g.Notes
+func (t Task) GTask() *gtasks.Task {
+	var g gtasks.Task
+	g.Title = t.Title
+	g.Notes = t.Description
+	g.Id = t.GoogleID
+	if t.Completed {
+		g.Status = "completed"
+	} else if !t.Completed {
+		g.Status = "needsAction"
 	}
-	if g.Due != "" {
-		t.Due, _ = time.Parse(time.RFC3339, g.Due)
-	}
-	if g.Status == "completed" {
-		t.Completed = true
-	} else {
-		t.Completed = false
-	}
-	return t
+	g.Due = t.Due.Format(time.RFC3339)
+	return &g
 }
 
-func (t Task) Task() {
+func (t Task) Task() string {
 	if t.Description != "" {
-		fmt.Printf("ID:%d\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n", t.ID, t.Title, t.Description, t.DueStr(), t.Completed)
-		return
+		return fmt.Sprintf("ID:%d\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n", t.ID, t.Title, t.Description, t.DueStr(), t.Completed)
 	}
-	fmt.Printf("ID:%d\n\tTitle: %s\n\tDue:%s\n\tCompleted:%t\n", t.ID, t.Title, t.DueStr(), t.Completed)
+	return fmt.Sprintf("ID:%d\n\tTitle: %s\n\tDue:%s\n\tCompleted:%t\n", t.ID, t.Title, t.DueStr(), t.Completed)
 }
 
 func (t *Task) DueStr() string {
@@ -73,3 +69,11 @@ func (t Task) FullTitle() string {
 	}
 	return title
 }
+
+type TasksList struct {
+	ID       string
+	GoogleID string
+	Title    string
+}
+
+type TasksLists []TasksList

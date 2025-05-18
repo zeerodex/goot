@@ -5,13 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zeerodex/goot/internal/apis/gtasksapi"
+	"github.com/zeerodex/goot/internal/apis"
 	"github.com/zeerodex/goot/internal/config"
-	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui"
 )
 
-func NewGoogleCmds(api *gtasksapi.GTasksApi) *cobra.Command {
+func NewGoogleCmds(api apis.API) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "gtasks",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -44,19 +43,19 @@ func newEnableSyncingCmd() *cobra.Command {
 	}
 }
 
-func newGetGTaskListsCmd(api *gtasksapi.GTasksApi) *cobra.Command {
+func newGetGTaskListsCmd(api apis.API) *cobra.Command {
 	return &cobra.Command{
 		Use:  "get",
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := api.GetTasksLists()
+			lists, err := api.GetAllLists()
 			if err != nil {
 				return fmt.Errorf("unable to get task lists: %v", err)
 			}
 			fmt.Println("Task Lists:")
-			if len(res.Items) > 0 {
-				for _, l := range res.Items {
-					fmt.Printf("%s (%s)\n", l.Title, l.Id)
+			if len(lists) > 0 {
+				for _, l := range lists {
+					fmt.Printf("%s (%s)\n", l.Title, l.ID)
 				}
 			} else {
 				fmt.Print("No task lists found.")
@@ -66,26 +65,18 @@ func newGetGTaskListsCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	}
 }
 
-func newDeleteGTaskCmd(api *gtasksapi.GTasksApi) *cobra.Command {
+func newDeleteGTaskCmd(api apis.API) *cobra.Command {
 	return &cobra.Command{
 		Use:  "rm",
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var taskId string
 			if len(args) != 1 {
-				res, err := api.GetTasks()
+				tasks, err := api.GetAllTasks()
 				if err != nil {
 					return fmt.Errorf("unable to get tasks: %v", err)
 				}
-				if len(res.Items) > 0 {
-					var tasks tasks.Tasks
-					for _, t := range res.Items {
-						task, err := gtasksapi.ConvertGTask(t)
-						if err != nil {
-							return fmt.Errorf("unable to get tasks: %v", err)
-						}
-						tasks = append(tasks, *task)
-					}
+				if len(tasks) > 0 {
 					taskId = tui.ChooseGTask(tasks)
 					if taskId == "" {
 						return nil
@@ -97,7 +88,7 @@ func newDeleteGTaskCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 			} else {
 				taskId = args[0]
 			}
-			err := api.DeleteTaskById(taskId)
+			err := api.DeleteTaskByID(taskId)
 			if err != nil {
 				return fmt.Errorf("unable to delete task: %v", err)
 			}
@@ -106,19 +97,19 @@ func newDeleteGTaskCmd(api *gtasksapi.GTasksApi) *cobra.Command {
 	}
 }
 
-func newGetGTasksCmd(api *gtasksapi.GTasksApi) *cobra.Command {
+func newGetGTasksCmd(api apis.API) *cobra.Command {
 	return &cobra.Command{
 		Use:  "list",
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := api.GetTasks()
+			tasks, err := api.GetAllTasks()
 			if err != nil {
 				return fmt.Errorf("unable to get tasks: %v", err)
 			}
 			fmt.Println("Tasks:")
-			if len(res.Items) > 0 {
-				for _, t := range res.Items {
-					fmt.Printf("%s (%s)\n", t.Title, t.Id)
+			if len(tasks) > 0 {
+				for _, t := range tasks {
+					fmt.Printf("%s (%s)\n", t.Title, t.ID)
 				}
 			} else {
 				fmt.Println("No tasks found.")

@@ -8,19 +8,20 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui"
 	"github.com/zeerodex/goot/pkg/timeutil"
 )
 
-func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
+func NewAllTasksCmd(s services.TaskService) *cobra.Command {
 	var jsonFormat bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all tasks",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			tasks, err := repo.GetAll()
+			tasks, err := s.GetAllTasks()
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -34,7 +35,7 @@ func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
 				fmt.Println()
 			} else {
 				for _, task := range tasks {
-					task.Task()
+					fmt.Println(task.Task())
 				}
 			}
 		},
@@ -43,7 +44,7 @@ func NewAllTasksCmd(repo tasks.TaskRepository) *cobra.Command {
 	return cmd
 }
 
-func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
+func NewCreateCmd(s services.TaskService) *cobra.Command {
 	var description string
 	var dueTimeStr string
 	cmd := &cobra.Command{
@@ -88,12 +89,12 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 			}
 			task.Due = due
 
-			err = repo.Create(task.Title, task.Description, task.Due)
+			createdTask, err := s.CreateTask(task)
 			if err != nil {
 				fmt.Printf("Error creating task: %v", err)
 				return
 			}
-			// HACK:
+			fmt.Println(createdTask.Task())
 		},
 	}
 	cmd.Flags().StringVarP(&dueTimeStr, "time", "t", "", "Due time (HH:MM)")
@@ -101,7 +102,7 @@ func NewCreateCmd(repo tasks.TaskRepository) *cobra.Command {
 	return cmd
 }
 
-func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
+func NewDeleteTaskCmd(s services.TaskService) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rm [task id]",
 		Short: "Deletes a task",
@@ -109,7 +110,7 @@ func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			var id int
 			if len(args) == 0 {
-				tasks, err := repo.GetAll()
+				tasks, err := s.GetAllTasks()
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -123,7 +124,7 @@ func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 					return
 				}
 			}
-			err := repo.DeleteByID(id)
+			err := s.DeleteTaskByID(id)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -133,7 +134,7 @@ func NewDeleteTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 	return cmd
 }
 
-func NewDoneTaskCmd(repo tasks.TaskRepository) *cobra.Command {
+func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 	return &cobra.Command{
 		Use:   "done [task id]",
 		Short: "Marks task completed",
@@ -141,7 +142,7 @@ func NewDoneTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			var id int
 			if len(args) == 0 {
-				tasks, err := repo.GetAll()
+				tasks, err := s.GetAllTasks()
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -155,7 +156,7 @@ func NewDoneTaskCmd(repo tasks.TaskRepository) *cobra.Command {
 					return
 				}
 			}
-			err := repo.ToggleCompleted(id, false)
+			err := s.ToggleCompleted(id, false)
 			if err != nil {
 				fmt.Printf("Failed to mark task completed: %v", err)
 				return

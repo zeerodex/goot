@@ -32,8 +32,7 @@ var (
 		"sat":       time.Saturday,
 	}
 
-	// FIX: handle timezone
-	loc = time.Local
+	loc = time.UTC
 )
 
 func ParseWeekDay(weekdayStr string) (time.Weekday, error) {

@@ -10,17 +10,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
 type TaskProcessor struct {
-	repo         tasks.TaskRepository
+	s            services.TaskService
 	timeWindow   time.Duration
 	pollInterval time.Duration
 }
 
-func NewTaskProcessor(repo tasks.TaskRepository, timeWindow, pollInterval time.Duration) *TaskProcessor {
-	return &TaskProcessor{repo: repo, timeWindow: timeWindow, pollInterval: pollInterval}
+func NewTaskProcessor(s services.TaskService, timeWindow, pollInterval time.Duration) *TaskProcessor {
+	return &TaskProcessor{s: s, timeWindow: timeWindow, pollInterval: pollInterval}
 }
 
 func (tp *TaskProcessor) Start(ctx context.Context) {
@@ -57,7 +58,7 @@ func (tp *TaskProcessor) ProcessTasks(tasks tasks.Tasks) error {
 		timeDiff := now.Sub(task.Due)
 		if timeDiff >= 0 && timeDiff <= time.Minute && !task.Notified {
 			go tp.SendTaskDueNofitication(task)
-			if err := tp.repo.MarkAsNotified(task.ID); err != nil {
+			if err := tp.s.MarkAsNotified(task.ID); err != nil {
 				return fmt.Errorf("error marking task ID %d as notified: %w", task.ID, err)
 			}
 			log.Printf("[INFO] Task ID %d has been processed", task.ID)
@@ -73,7 +74,7 @@ func (tp *TaskProcessor) FetchTasks() (tasks.Tasks, error) {
 	minTime := now.Add(-tp.timeWindow)
 	maxTime := now.Add(tp.timeWindow)
 
-	tasks, err := tp.repo.GetPendingTasks(minTime, maxTime)
+	tasks, err := tp.s.GetAllPendingTasks(minTime, maxTime)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching tasks: %w", err)
 	}
@@ -92,8 +93,8 @@ func (tp TaskProcessor) SendTaskDueNofitication(task tasks.Task) {
 	log.Printf("[INFO] Notification sent for task ID %d", task.ID)
 }
 
-func StartDaemon(repo tasks.TaskRepository) {
-	tp := NewTaskProcessor(repo, time.Minute, time.Minute)
+func StartDaemon(s services.TaskService) {
+	tp := NewTaskProcessor(s, time.Minute, time.Minute)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

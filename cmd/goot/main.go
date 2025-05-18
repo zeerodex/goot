@@ -3,10 +3,12 @@ package main
 import (
 	"log"
 
+	"github.com/zeerodex/goot/internal/apis/gtasksapi"
 	cmd "github.com/zeerodex/goot/internal/cli"
 	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/database"
-	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/internal/repositories"
+	"github.com/zeerodex/goot/internal/services"
 )
 
 func main() {
@@ -21,7 +23,8 @@ func main() {
 	}
 	defer db.Close()
 
-	repo := tasks.NewTaskRepository(db)
+	gApi := gtasksapi.NewGTasksApi(cfg.Google.ListId)
+	service := services.NewTaskService(repositories.NewTaskRepository(db), gApi, cfg.Google.Sync)
 
-	cmd.Execute(repo, cfg)
+	cmd.Execute(service, cfg)
 }

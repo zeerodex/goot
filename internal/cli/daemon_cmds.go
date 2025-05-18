@@ -2,17 +2,18 @@ package cli
 
 import (
 	"github.com/spf13/cobra"
+
 	"github.com/zeerodex/goot/internal/daemon"
-	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/internal/services"
 )
 
-func NewDaemonCmd(repo tasks.TaskRepository) *cobra.Command {
+func NewDaemonCmd(s services.TaskService) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "daemon",
 		Short: "Start a daemon of gootodo",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			daemon.StartDaemon(repo)
+			daemon.StartDaemon(s)
 		},
 	}
 	return cmd

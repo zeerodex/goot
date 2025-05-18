@@ -1,0 +1,9 @@
+{
+  "apis": [
+    "google"
+  ],
+  "google": {
+    "list-id": "@default",
+    "sync": true
+  }
+}

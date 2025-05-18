@@ -2,6 +2,8 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui/components"
 )
@@ -22,13 +24,13 @@ type MainModel struct {
 	creationModel components.CreationModel
 
 	tasks tasks.Tasks
-	repo  tasks.TaskRepository
+	s     services.TaskService
 	err   error
 }
 
-func fetchTasksCmd(repo tasks.TaskRepository) tea.Cmd {
+func fetchTasksCmd(s services.TaskService) tea.Cmd {
 	return func() tea.Msg {
-		tasks, err := repo.GetAll()
+		tasks, err := s.GetAllTasks()
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -36,33 +38,33 @@ func fetchTasksCmd(repo tasks.TaskRepository) tea.Cmd {
 	}
 }
 
-func createTaskCmd(repo tasks.TaskRepository, task components.Task) tea.Cmd {
+func createTaskCmd(s services.TaskService, task tasks.Task) tea.Cmd {
 	return func() tea.Msg {
-		err := repo.Create(task.Title, task.Description, task.Due)
+		_, err := s.CreateTask(task)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return fetchTasksCmd(repo)()
+		return fetchTasksCmd(s)()
 	}
 }
 
-func deleteTaskCmd(repo tasks.TaskRepository, id int) tea.Cmd {
+func deleteTaskCmd(s services.TaskService, id int) tea.Cmd {
 	return func() tea.Msg {
-		err := repo.DeleteByID(id)
+		err := s.DeleteTaskByID(id)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return fetchTasksCmd(repo)()
+		return fetchTasksCmd(s)()
 	}
 }
 
-func toggleCompletedCmd(repo tasks.TaskRepository, id int, completed bool) tea.Cmd {
+func toggleCompletedCmd(s services.TaskService, id int, completed bool) tea.Cmd {
 	return func() tea.Msg {
-		err := repo.ToggleCompleted(id, completed)
+		err := s.ToggleCompleted(id, completed)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return fetchTasksCmd(repo)()
+		return fetchTasksCmd(s)()
 	}
 }
 
@@ -88,7 +90,7 @@ type errMsg struct {
 }
 
 func (m MainModel) Init() tea.Cmd {
-	return fetchTasksCmd(m.repo)
+	return fetchTasksCmd(m.s)
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -116,17 +118,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case deleteTaskMsg:
-		cmds = append(cmds, deleteTaskCmd(m.repo, msg.id))
+		cmds = append(cmds, deleteTaskCmd(m.s, msg.id))
 
 	case toggleCompletedMsg:
-		cmds = append(cmds, toggleCompletedCmd(m.repo, msg.id, msg.completed))
+		cmds = append(cmds, toggleCompletedCmd(m.s, msg.id, msg.completed))
 
 	case fetchedTasksMsg:
 		m.tasks = msg.Tasks
 		cmds = append(cmds, m.listModel.SetTasks(m.tasks))
 
 	case createTaskMsg:
-		cmds = append(cmds, createTaskCmd(m.repo, msg.Task))
+		var task tasks.Task
+		task.Title = msg.Task.Title
+		task.Description = msg.Task.Description
+		task.Due = msg.Task.Due
+
+		cmds = append(cmds, createTaskCmd(m.s, task))
 		m.creationModel = components.InitialCreationModel()
 
 		m.currentState = m.previuosState
@@ -189,7 +196,7 @@ func (m MainModel) View() string {
 	return ""
 }
 
-func InitialMainModel(repo tasks.TaskRepository) MainModel {
+func InitialMainModel(s services.TaskService) MainModel {
 	listModel := components.InitialListModel()
 	creationModel := components.InitialCreationModel()
 
@@ -198,7 +205,7 @@ func InitialMainModel(repo tasks.TaskRepository) MainModel {
 		listModel:     listModel,
 		creationModel: creationModel,
 
-		repo: repo,
+		s: s,
 	}
 
 	return m

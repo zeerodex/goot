@@ -6,44 +6,37 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/zeerodex/goot/internal/apis/gtasksapi"
 	gtaskscmds "github.com/zeerodex/goot/internal/cli/apis/gtasks_cmds"
 	"github.com/zeerodex/goot/internal/config"
-	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tui"
 )
 
-func newRootCmd(repo tasks.TaskRepository) *cobra.Command {
+func newRootCmd(s services.TaskService) *cobra.Command {
 	return &cobra.Command{
 		Use:   "goot",
 		Short: "Sleek cli/tui task manager with APIs integration",
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := tea.NewProgram(tui.InitialMainModel(repo)).Run()
+			_, err := tea.NewProgram(tui.InitialMainModel(s)).Run()
 			cobra.CheckErr(err)
 		},
 	}
 }
 
-func Execute(repo tasks.TaskRepository, cfg *config.Config) {
-	rootCmd := newRootCmd(repo)
+func Execute(s services.TaskService, cfg *config.Config) {
+	rootCmd := newRootCmd(s)
 
 	commands := []*cobra.Command{
-		NewCreateCmd(repo),
-		NewAllTasksCmd(repo),
-		NewDeleteTaskCmd(repo),
-		NewDoneTaskCmd(repo),
+		NewCreateCmd(s),
+		NewAllTasksCmd(s),
+		NewDeleteTaskCmd(s),
+		NewDoneTaskCmd(s),
 
-		NewDaemonCmd(repo),
+		NewDaemonCmd(s),
 	}
 	rootCmd.AddCommand(commands...)
 
-	for _, api := range cfg.APIs {
-		switch api {
-		case "google":
-			api := gtasksapi.NewGTasksApi(cfg.Google.ListId)
-			rootCmd.AddCommand(gtaskscmds.NewGoogleCmds(api))
-		}
-	}
+	rootCmd.AddCommand(gtaskscmds.NewGoogleCmds(s.GetGApi()))
 
 	err := rootCmd.Execute()
 	if err != nil {
