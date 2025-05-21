@@ -21,6 +21,7 @@ type TaskRepository interface {
 	ToggleCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
 	GetTaskGoogleID(id int) (string, error)
+	GetTaskIDByGoogleID(googleId string) (int, error)
 }
 
 type taskRepository struct {
@@ -94,6 +95,18 @@ func (r *taskRepository) GetTaskGoogleID(id int) (string, error) {
 	}
 
 	return googleId, nil
+}
+
+func (r *taskRepository) GetTaskIDByGoogleID(googleId string) (int, error) {
+	row := r.db.QueryRow("SELECT id FROM tasks WHERE google_id = ?", googleId)
+
+	var id int
+	err := row.Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("unable to get id by google id '%s': %w", googleId, err)
+	}
+
+	return id, nil
 }
 
 func (r *taskRepository) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error) {

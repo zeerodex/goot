@@ -23,7 +23,7 @@ func NewGTasksApi(listId string) apis.API {
 func (api *GTasksApi) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	gtask, err := api.srv.Tasks.Insert(api.ListId, task.GTask()).Do()
 	if err != nil {
-		return nil, fmt.Errorf("error inserting task into %s: %v", api.ListId, err)
+		return nil, fmt.Errorf("failed to create task in list '%s': %w", api.ListId, err)
 	}
 	task.GoogleID = gtask.Id
 	return task, nil
@@ -32,7 +32,7 @@ func (api *GTasksApi) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 func (api *GTasksApi) GetTaskByID(id string) (tasks.Task, error) {
 	gtask, err := api.srv.Tasks.Get(api.ListId, id).Do()
 	if err != nil {
-		return tasks.Task{}, fmt.Errorf("error fetching task from %s: %v", api.ListId, err)
+		return tasks.Task{}, fmt.Errorf("failed to retrieve task '%s' from list '%s': %w", id, api.ListId, err)
 	}
 	return ConvertGTask(gtask), nil
 }
@@ -40,7 +40,7 @@ func (api *GTasksApi) GetTaskByID(id string) (tasks.Task, error) {
 func (api *GTasksApi) GetAllLists() (tasks.TasksLists, error) {
 	glists, err := api.srv.Tasklists.List().Do()
 	if err != nil {
-		return nil, fmt.Errorf("error fetching task lists: %v", err)
+		return nil, fmt.Errorf("failed to retrieve all task lists: %w", err)
 	}
 	lists := make(tasks.TasksLists, len(glists.Items))
 	for i, glist := range glists.Items {
@@ -52,7 +52,7 @@ func (api *GTasksApi) GetAllLists() (tasks.TasksLists, error) {
 func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
 	gtasks, err := api.srv.Tasks.List(api.ListId).Do()
 	if err != nil {
-		return nil, fmt.Errorf("error fetching tasks from %s: %v", api.ListId, err)
+		return nil, fmt.Errorf("failed to retrieve all tasks from list '%s': %w", api.ListId, err)
 	}
 
 	tasksList := make(tasks.Tasks, len(gtasks.Items))
@@ -65,7 +65,7 @@ func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
 func (api *GTasksApi) DeleteTaskByID(taskId string) error {
 	err := api.srv.Tasks.Delete(api.ListId, taskId).Do()
 	if err != nil {
-		return fmt.Errorf("error deleting task %s from gtasks: %v", taskId, err)
+		return fmt.Errorf("failed to delete task '%s' from list '%s': %w", taskId, api.ListId, err)
 	}
 	return nil
 }
@@ -80,7 +80,7 @@ func (api *GTasksApi) ToogleCompleted(id string, completed bool) error {
 
 	_, err := api.srv.Tasks.Patch(api.ListId, id, gtask).Do()
 	if err != nil {
-		return fmt.Errorf("error deleting task %s from default list: %v", id, err)
+		return fmt.Errorf("failed to delete task '%s' from list '%s': %v", id, api.ListId, err)
 	}
 	return nil
 }
