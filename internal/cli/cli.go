@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"log"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -41,6 +41,6 @@ func Execute(s services.TaskService, cfg *config.Config) {
 
 	err := rootCmd.Execute()
 	if err != nil {
-		log.Fatal(err)
+		os.Exit(1)
 	}
 }
