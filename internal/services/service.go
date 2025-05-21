@@ -1,6 +1,9 @@
 package services
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/zeerodex/goot/internal/apis"
@@ -38,6 +41,50 @@ func (s *taskService) GetGApi() apis.API {
 }
 
 func (s *taskService) SyncGTasks() error {
+	gtasks, err := s.gApi.GetAllTasks()
+	if err != nil {
+		return err
+	}
+
+	for _, gtask := range gtasks {
+		gtask.ID, err = s.repo.GetTaskIDByGoogleID(gtask.GoogleID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				_, err := s.repo.CreateTask(&gtask)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Synced ID %d : Google ID %s", gtask.ID, gtask.GoogleID)
+			} else {
+				return err
+			}
+		}
+		fmt.Println(gtask.ID)
+		task, err := s.repo.GetTaskByID(gtask.ID)
+		if err != nil {
+			return err
+		}
+		fmt.Println(gtask.LastModified)
+		fmt.Println(task.LastModified)
+		timeDiff := gtask.LastModified.Compare(task.LastModified)
+		fmt.Println(timeDiff)
+		if timeDiff != 0 {
+			switch timeDiff {
+			case 1:
+				_, err := s.gApi.PatchTask(task)
+				if err != nil {
+					return err
+				}
+			case -1:
+				_, err := s.repo.UpdateTask(&gtask)
+				if err != nil {
+					return err
+				}
+
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -53,6 +100,7 @@ func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return task, err
 }
 
@@ -69,6 +117,16 @@ func (s *taskService) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Task
 }
 
 func (s *taskService) ToggleCompleted(id int, completed bool) error {
+	if s.gSync {
+		id, err := s.repo.GetTaskGoogleID(id)
+		if err != nil {
+			return err
+		}
+		err = s.gApi.ToggleCompleted(id, completed)
+		if err != nil {
+			return err
+		}
+	}
 	return s.repo.ToggleCompleted(id, completed)
 }
 

@@ -8,13 +8,14 @@ import (
 )
 
 type Task struct {
-	ID          int `json:"id"`
-	GoogleID    string
-	Title       string    `json:"title"`
-	Description string    `json:"description,omitempty"`
-	Due         time.Time `json:"due"`
-	Completed   bool      `json:"status"`
-	Notified    bool      `json:"notified"`
+	ID           int `json:"id"`
+	GoogleID     string
+	Title        string    `json:"title"`
+	Description  string    `json:"description,omitempty"`
+	Due          time.Time `json:"due"`
+	Completed    bool      `json:"status"`
+	Notified     bool      `json:"notified"`
+	LastModified time.Time `json:"last_modified"`
 }
 
 type Tasks []Task
@@ -47,12 +48,17 @@ func (t *Task) DueStr() string {
 	return t.Due.Format("2006-01-02 15:04")
 }
 
-func (t *Task) SetDue(dueStr string) error {
+func (t *Task) SetDueAndLastModified(dueStr string, lastModifiedStr string) error {
 	due, err := time.Parse(time.RFC3339, dueStr)
 	if err != nil {
 		return err
 	}
 	t.Due = due
+	lastModified, err := time.Parse(time.RFC3339, lastModifiedStr)
+	if err != nil {
+		return err
+	}
+	t.LastModified = lastModified
 	return nil
 }
 

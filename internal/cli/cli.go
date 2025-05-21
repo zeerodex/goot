@@ -31,6 +31,7 @@ func Execute(s services.TaskService, cfg *config.Config) {
 		NewAllTasksCmd(s),
 		NewDeleteTaskCmd(s),
 		NewDoneTaskCmd(s),
+		NewSyncTasks(s),
 
 		NewDaemonCmd(s),
 	}

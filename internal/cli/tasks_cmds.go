@@ -139,28 +139,37 @@ func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 		Use:   "done [task id]",
 		Short: "Marks task completed",
 		Args:  cobra.RangeArgs(0, 1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			var id int
 			if len(args) == 0 {
 				tasks, err := s.GetAllTasks()
 				if err != nil {
-					fmt.Println(err)
-					return
+					return err
 				}
 				id = tui.ChooseTask(tasks)
 			} else {
 				var err error
 				id, err = strconv.Atoi(args[0])
 				if err != nil {
-					fmt.Printf("Incorrect task id: %v", err)
-					return
+					return fmt.Errorf("incorrect task id: %w", err)
 				}
 			}
-			err := s.ToggleCompleted(id, false)
+			err := s.ToggleCompleted(id, true)
 			if err != nil {
-				fmt.Printf("Failed to mark task completed: %v", err)
-				return
+				return fmt.Errorf("failed to mark task completed: %w", err)
 			}
+			return nil
+		},
+	}
+}
+
+func NewSyncTasks(s services.TaskService) *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync",
+		Short: "Sync tasks with apis",
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return s.SyncGTasks()
 		},
 	}
 }

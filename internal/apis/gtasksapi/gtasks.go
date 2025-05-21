@@ -29,10 +29,10 @@ func (api *GTasksApi) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	return task, nil
 }
 
-func (api *GTasksApi) GetTaskByID(id string) (tasks.Task, error) {
+func (api *GTasksApi) GetTaskByID(id string) (*tasks.Task, error) {
 	gtask, err := api.srv.Tasks.Get(api.ListId, id).Do()
 	if err != nil {
-		return tasks.Task{}, fmt.Errorf("failed to retrieve task '%s' from list '%s': %w", id, api.ListId, err)
+		return nil, fmt.Errorf("failed to retrieve task '%s' from list '%s': %w", id, api.ListId, err)
 	}
 	return ConvertGTask(gtask), nil
 }
@@ -57,20 +57,29 @@ func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
 
 	tasksList := make(tasks.Tasks, len(gtasks.Items))
 	for i, task := range gtasks.Items {
-		tasksList[i] = ConvertGTask(task)
+		t := ConvertGTask(task)
+		tasksList[i] = *t
 	}
 	return tasksList, nil
 }
 
-func (api *GTasksApi) DeleteTaskByID(taskId string) error {
-	err := api.srv.Tasks.Delete(api.ListId, taskId).Do()
+func (api *GTasksApi) DeleteTaskByID(id string) error {
+	err := api.srv.Tasks.Delete(api.ListId, id).Do()
 	if err != nil {
-		return fmt.Errorf("failed to delete task '%s' from list '%s': %w", taskId, api.ListId, err)
+		return fmt.Errorf("failed to delete task '%s' from list '%s': %w", id, api.ListId, err)
 	}
 	return nil
 }
 
-func (api *GTasksApi) ToogleCompleted(id string, completed bool) error {
+func (api *GTasksApi) PatchTask(task *tasks.Task) (*tasks.Task, error) {
+	g, err := api.srv.Tasks.Patch(api.ListId, task.GoogleID, task.GTask()).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to patch task '%s' from list '%s': %w", task.GoogleID, api.ListId, err)
+	}
+	return ConvertGTask(g), nil
+}
+
+func (api *GTasksApi) ToggleCompleted(id string, completed bool) error {
 	gtask := &gtasks.Task{}
 	if completed {
 		gtask.Status = "completed"
@@ -85,19 +94,17 @@ func (api *GTasksApi) ToogleCompleted(id string, completed bool) error {
 	return nil
 }
 
-func ConvertGTask(g *gtasks.Task) (t tasks.Task) {
-	t.GoogleID = g.Id
-	t.Title = g.Title
-	t.Description = g.Notes
+func ConvertGTask(g *gtasks.Task) *tasks.Task {
+	t := &tasks.Task{
+		GoogleID:    g.Id,
+		Title:       g.Title,
+		Description: g.Notes,
+		Completed:   g.Status == "completed",
+	}
 	if g.Due != "" {
 		t.Due, _ = time.Parse(time.RFC3339, g.Due)
 	}
-	if g.Status == "completed" {
-		t.Completed = true
-	} else {
-		t.Completed = false
-	}
-
+	t.LastModified, _ = time.Parse(time.RFC3339, g.Updated)
 	return t
 }
 

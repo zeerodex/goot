@@ -15,7 +15,7 @@ type TaskRepository interface {
 	GetTaskByID(id int) (*tasks.Task, error)
 	GetTaskByDue(due time.Time) (tasks.Task, error)
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
-	Update(fields ...string) (*tasks.Task, error)
+	UpdateTask(task *tasks.Task) (*tasks.Task, error)
 	DeleteTaskByID(id int) error
 	DeleteTaskByTitle(title string) error
 	ToggleCompleted(id int, completed bool) error
@@ -34,12 +34,13 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 
 func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	row, err := r.db.Exec(
-		"INSERT INTO tasks (google_id, title, description, completed, due) VALUES (?, ?, ?, ?, ?)",
+		"INSERT INTO tasks (google_id, title, description, completed, due, last_modified) VALUES (?, ?, ?, ?, ?, ?)",
 		task.GoogleID,
 		task.Title,
 		task.Description,
 		false,
-		task.Due.Format(time.RFC3339))
+		task.Due.Format(time.RFC3339),
+		time.Now().Format(time.RFC3339))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create task '%s': %w", task.Title, err)
 	}
@@ -53,7 +54,7 @@ func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 }
 
 func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
-	_, err := r.db.Exec("UPDATE tasks SET completed = ? WHERE id = ?", !completed, id)
+	_, err := r.db.Exec("UPDATE tasks SET completed = ?, last_modified = ? WHERE id = ?", completed, time.Now().Format(time.RFC3339), id)
 	if err != nil {
 		return fmt.Errorf("unable to toggle complete for task ID %d: %w", id, err)
 	}
@@ -61,7 +62,7 @@ func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
 }
 
 func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
-	rows, err := r.db.Query("SELECT id, title, description, due, completed FROM tasks ORDER BY completed, due")
+	rows, err := r.db.Query("SELECT id, title, description, due, completed, last_modified FROM tasks ORDER BY completed, due")
 	if err != nil {
 		return nil, fmt.Errorf("unable to get all tasks: %w", err)
 	}
@@ -71,11 +72,12 @@ func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 	for rows.Next() {
 		var task tasks.Task
 		var dueStr string
-		err = rows.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed)
+		var lastModifiedStr string
+		err = rows.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed, &lastModifiedStr)
 		if err != nil {
 			return nil, err
 		}
-		err = task.SetDue(dueStr)
+		err = task.SetDueAndLastModified(dueStr, lastModifiedStr)
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +112,7 @@ func (r *taskRepository) GetTaskIDByGoogleID(googleId string) (int, error) {
 }
 
 func (r *taskRepository) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error) {
-	rows, err := r.db.Query("SELECT id, title, description, due, completed, notified FROM tasks WHERE due >= ? AND due <= ? AND notified = 0", minTime.Format(time.RFC3339), maxTime.Format(time.RFC3339))
+	rows, err := r.db.Query("SELECT id, title, description, due, completed, notified, last_modified FROM tasks WHERE due >= ? AND due <= ? AND notified = 0", minTime.Format(time.RFC3339), maxTime.Format(time.RFC3339))
 	if err != nil {
 		return nil, err
 	}
@@ -120,11 +122,12 @@ func (r *taskRepository) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.T
 	for rows.Next() {
 		var task tasks.Task
 		var dueStr string
-		err = rows.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified)
+		var lastModifiedStr string
+		err = rows.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr)
 		if err != nil {
 			return nil, err
 		}
-		err = task.SetDue(dueStr)
+		err = task.SetDueAndLastModified(dueStr, lastModifiedStr)
 		if err != nil {
 			return nil, err
 		}
@@ -135,15 +138,16 @@ func (r *taskRepository) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.T
 }
 
 func (r *taskRepository) GetTaskByDue(due time.Time) (tasks.Task, error) {
-	row := r.db.QueryRow("SELECT id, title, description, due, completed FROM tasks WHERE due = ?", due.Format(time.RFC3339))
+	row := r.db.QueryRow("SELECT id, title, description, due, completed, last_modified FROM tasks WHERE due = ?", due.Format(time.RFC3339))
 
 	var dueStr string
 	var task tasks.Task
-	err := row.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed)
+	var lastModifiedStr string
+	err := row.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed, &lastModifiedStr)
 	if err != nil {
 		return task, err
 	}
-	err = task.SetDue(dueStr)
+	err = task.SetDueAndLastModified(dueStr, lastModifiedStr)
 	if err != nil {
 		return task, err
 	}
@@ -154,24 +158,37 @@ func (r *taskRepository) GetTaskByDue(due time.Time) (tasks.Task, error) {
 // TODO: update func
 
 func (r *taskRepository) GetTaskByID(id int) (*tasks.Task, error) {
-	row := r.db.QueryRow("SELECT id, title, description, due, completed FROM tasks WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, title, description, due, completed, last_modified FROM tasks WHERE id = ?", id)
 
-	task := &tasks.Task{}
+	var task tasks.Task
 	var dueStr string
-	err := row.Scan(task.ID, task.Title, task.Description, dueStr, task.Completed)
+	var lastModifiedStr string
+	err := row.Scan(&task.ID, &task.Title, &task.Description, &dueStr, &task.Completed, &lastModifiedStr)
 	if err != nil {
 		return nil, err
 	}
-	err = task.SetDue(dueStr)
+	err = task.SetDueAndLastModified(dueStr, lastModifiedStr)
 	if err != nil {
 		return nil, err
 	}
 
-	return task, nil
+	return &task, nil
 }
 
-func (r *taskRepository) Update(fields ...string) (*tasks.Task, error) {
-	return nil, nil
+func (r *taskRepository) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
+	res, err := r.db.Exec("UPDATE tasks SET title = ?, description = ?, due = ?, completed = ?, last_modified = ? WHERE id = ?",
+		task.Title, task.Description, task.Due.Format(time.RFC3339), task.Completed, time.Now().Format(time.RFC3339), task.ID)
+	if err != nil {
+		return nil, err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected < 1 {
+		return nil, errors.New("task was not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return task, nil
 }
 
 func (r *taskRepository) DeleteTaskByID(id int) error {
