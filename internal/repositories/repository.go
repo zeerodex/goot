@@ -16,6 +16,7 @@ type TaskRepository interface {
 
 	GetAllTasks() (tasks.Tasks, error)
 	GetTaskByID(id int) (*tasks.Task, error)
+	GetTaskByGoogleID(id string) (*tasks.Task, error)
 	GetTaskByDue(due time.Time) (*tasks.Task, error)
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
 
@@ -23,6 +24,7 @@ type TaskRepository interface {
 	GetTaskIDByGoogleID(googleId string) (int, error)
 
 	UpdateTask(task *tasks.Task) (*tasks.Task, error)
+	UpdateGoogleID(id int, googleID string) error
 
 	DeleteTaskByID(id int) error
 	DeleteTaskByTitle(title string) error
@@ -107,6 +109,25 @@ func (r *taskRepository) GetTaskByID(id int) (*tasks.Task, error) {
 	}
 	if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
 		return nil, fmt.Errorf("failed to set due/last_modified for task ID %d: %w", id, err)
+	}
+	return &task, nil
+}
+
+func (r *taskRepository) GetTaskByGoogleID(id string) (*tasks.Task, error) {
+	row := r.db.QueryRow("SELECT id, google_id, title, description, due, completed, notified, last_modified FROM tasks WHERE google_id = ?", id)
+
+	var task tasks.Task
+	var dueStr string
+	var lastModifiedStr string
+	err := row.Scan(&task.ID, &task.GoogleID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("task with Google ID '%s' not found: %w", id, ErrTaskNotFound)
+		}
+		return nil, fmt.Errorf("failed to scan task row for Google ID '%s': %w", id, err)
+	}
+	if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
+		return nil, fmt.Errorf("failed to set due/last_modified for task ID %d: %w", task.ID, err)
 	}
 	return &task, nil
 }
@@ -210,6 +231,27 @@ func (r *taskRepository) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
 		return nil, fmt.Errorf("task with ID %d not found for update: %w", task.ID, ErrTaskNotFound)
 	}
 	return task, nil
+}
+
+func (r *taskRepository) UpdateGoogleID(id int, googleID string) error {
+	stmt, err := r.db.Prepare("UPDATE tasks SET google_id = ?, last_modified = ? WHERE id = ?")
+	if err != nil {
+		return fmt.Errorf("failed to prepare update task statement: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(googleID, time.Now().Format(time.RFC3339), id)
+	if err != nil {
+		return fmt.Errorf("failed to execute update task statement for ID %d: %w", id, err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected after updating task ID %d: %w", id, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("task with ID %d not found for update: %w", id, ErrTaskNotFound)
+	}
+	return nil
 }
 
 func (r *taskRepository) ToggleCompleted(id int, completed bool) error {

@@ -20,6 +20,15 @@ type Task struct {
 
 type Tasks []Task
 
+func (tasks Tasks) FindID(id int) (*Task, bool) {
+	for _, t := range tasks {
+		if t.ID == id {
+			return &t, true
+		}
+	}
+	return nil, false
+}
+
 func (t Task) GTask() *gtasks.Task {
 	var g gtasks.Task
 	g.Title = t.Title
