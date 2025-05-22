@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -37,81 +36,6 @@ func NewTaskService(repo repositories.TaskRepository, gApi apis.API, gSync bool)
 
 func (s *taskService) GetGApi() apis.API {
 	return s.gApi
-}
-
-func (s *taskService) SyncGTasks() error {
-	tasks, err := s.repo.GetAllTasks()
-	if err != nil {
-		return fmt.Errorf("failed to get all local tasks: %w", err)
-	}
-	gtasks, err := s.gApi.GetAllTasks()
-	if err != nil {
-		return fmt.Errorf("failed to get all google tasks: %w", err)
-	}
-
-	gtasksIDs := make(map[string]bool)
-	for _, gtask := range gtasks {
-		gtasksIDs[gtask.GoogleID] = true
-	}
-
-	var missingIDs []int
-	for _, task := range tasks {
-		if _, found := gtasksIDs[task.GoogleID]; !found {
-			missingIDs = append(missingIDs, task.ID)
-		}
-	}
-
-	for _, id := range missingIDs {
-		task, found := tasks.FindID(id)
-		if !found {
-			return fmt.Errorf("unable to find task in task list by ID %d", id)
-		}
-
-		_, err := s.gApi.CreateTask(task)
-		if err != nil {
-			return fmt.Errorf("failed to create google task with Google ID '%s': %w", task.GoogleID, err)
-		}
-
-		err = s.repo.UpdateGoogleID(task.ID, task.GoogleID)
-		if err != nil {
-			return fmt.Errorf("failed to update Google ID '%s' of task ID %d: %w", task.GoogleID, task.ID, err)
-		}
-	}
-
-	for _, gtask := range gtasks {
-		gtask.ID, err = s.repo.GetTaskIDByGoogleID(gtask.GoogleID)
-		if err != nil {
-			if errors.Is(err, repositories.ErrTaskNotFound) {
-				_, err := s.repo.CreateTask(&gtask)
-				if err != nil {
-					return fmt.Errorf("failed to create local task for Google ID '%s': %w", gtask.GoogleID, err)
-				}
-			} else {
-				return fmt.Errorf("failed to get local task ID %d for Google ID '%s': %w", gtask.ID, gtask.GoogleID, err)
-			}
-		}
-		task, err := s.repo.GetTaskByID(gtask.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get local task by ID %d (for Google ID '%s'): %w", gtask.ID, gtask.GoogleID, err)
-		}
-		timeDiff := gtask.LastModified.Compare(task.LastModified)
-		if timeDiff != 0 {
-			switch timeDiff {
-			case 1:
-				_, err := s.gApi.PatchTask(task)
-				if err != nil {
-					return fmt.Errorf("failed to patch google task (Google ID '%s') with newer local task (ID %d): %w", gtask.GoogleID, gtask.ID, err)
-				}
-			case -1:
-				_, err := s.repo.UpdateTask(&gtask)
-				if err != nil {
-					return fmt.Errorf("failed to update local task (ID %d) with newer googla task (Google ID '%s'): %w", gtask.ID, gtask.GoogleID, err)
-				}
-			}
-		}
-	}
-
-	return nil
 }
 
 func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {

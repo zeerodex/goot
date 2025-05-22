@@ -15,6 +15,7 @@ type Task struct {
 	Due          time.Time `json:"due"`
 	Completed    bool      `json:"status"`
 	Notified     bool      `json:"notified"`
+	Deleted      bool      `json:"deleted"`
 	LastModified time.Time `json:"last_modified"`
 }
 
@@ -27,6 +28,15 @@ func (tasks Tasks) FindID(id int) (*Task, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (tasks Tasks) FindTaskIDByGoogleID(googleId string) (int, bool) {
+	for _, t := range tasks {
+		if t.GoogleID == googleId {
+			return t.ID, true
+		}
+	}
+	return 0, false
 }
 
 func (t Task) GTask() *gtasks.Task {
