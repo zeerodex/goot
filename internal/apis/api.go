@@ -7,6 +7,7 @@ type API interface {
 	GetAllLists() (tasks.TasksLists, error)
 	GetTaskByID(id string) (*tasks.Task, error)
 	GetAllTasks() (tasks.Tasks, error)
+	GetAllTasksWithDeleted() (tasks.Tasks, error)
 	PatchTask(task *tasks.Task) (*tasks.Task, error)
 	ToggleCompleted(id string, completed bool) error
 	DeleteTaskByID(id string) error

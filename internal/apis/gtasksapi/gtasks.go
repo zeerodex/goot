@@ -50,9 +50,23 @@ func (api *GTasksApi) GetAllLists() (tasks.TasksLists, error) {
 }
 
 func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
-	gtasks, err := api.srv.Tasks.List(api.ListId).Do()
+	gtasks, err := api.srv.Tasks.List(api.ListId).ShowCompleted(true).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve all tasks from list '%s': %w", api.ListId, err)
+	}
+
+	tasksList := make(tasks.Tasks, len(gtasks.Items))
+	for i, task := range gtasks.Items {
+		t := ConvertGTask(task)
+		tasksList[i] = *t
+	}
+	return tasksList, nil
+}
+
+func (api *GTasksApi) GetAllTasksWithDeleted() (tasks.Tasks, error) {
+	gtasks, err := api.srv.Tasks.List(api.ListId).ShowDeleted(true).ShowCompleted(true).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve all deleted tasks from list '%s': %w", api.ListId, err)
 	}
 
 	tasksList := make(tasks.Tasks, len(gtasks.Items))
@@ -100,6 +114,7 @@ func ConvertGTask(g *gtasks.Task) *tasks.Task {
 		Title:       g.Title,
 		Description: g.Notes,
 		Completed:   g.Status == "completed",
+		Deleted:     g.Deleted,
 	}
 	if g.Due != "" {
 		t.Due, _ = time.Parse(time.RFC3339, g.Due)

@@ -21,7 +21,7 @@ type Task struct {
 
 type Tasks []Task
 
-func (tasks Tasks) FindID(id int) (*Task, bool) {
+func (tasks Tasks) FindByID(id int) (*Task, bool) {
 	for _, t := range tasks {
 		if t.ID == id {
 			return &t, true
@@ -30,13 +30,13 @@ func (tasks Tasks) FindID(id int) (*Task, bool) {
 	return nil, false
 }
 
-func (tasks Tasks) FindTaskIDByGoogleID(googleId string) (int, bool) {
+func (tasks Tasks) FindTaskByGoogleID(googleId string) (*Task, bool) {
 	for _, t := range tasks {
 		if t.GoogleID == googleId {
-			return t.ID, true
+			return &t, true
 		}
 	}
-	return 0, false
+	return nil, false
 }
 
 func (t Task) GTask() *gtasks.Task {
@@ -55,9 +55,9 @@ func (t Task) GTask() *gtasks.Task {
 
 func (t Task) Task() string {
 	if t.Description != "" {
-		return fmt.Sprintf("ID:%d\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n", t.ID, t.Title, t.Description, t.DueStr(), t.Completed)
+		return fmt.Sprintf("ID:%d\n\tGoogle ID:%s\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n\tModified:%s\n\tDeleted:%t", t.ID, t.GoogleID, t.Title, t.Description, t.Due, t.Completed, t.LastModified, t.Deleted)
 	}
-	return fmt.Sprintf("ID:%d\n\tTitle: %s\n\tDue:%s\n\tCompleted:%t\n", t.ID, t.Title, t.DueStr(), t.Completed)
+	return fmt.Sprintf("ID:%d\n\tGoogle ID:%s\n\tTitle: %s\n\tDue:%s\n\tCompleted:%t\n\tModified:%s\n\tDeleted:%t", t.ID, t.GoogleID, t.Title, t.Due, t.Completed, t.LastModified, t.Deleted)
 }
 
 func (t *Task) DueStr() string {

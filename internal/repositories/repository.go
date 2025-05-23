@@ -19,6 +19,7 @@ type TaskRepository interface {
 	GetTaskByGoogleID(id string) (*tasks.Task, error)
 	GetTaskByDue(due time.Time) (*tasks.Task, error)
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
+	GetAllDeletedTasks() (tasks.Tasks, error)
 
 	GetTaskGoogleID(id int) (string, error)
 	GetTaskIDByGoogleID(googleId string) (int, error)
@@ -27,6 +28,7 @@ type TaskRepository interface {
 	UpdateGoogleID(id int, googleID string) error
 
 	DeleteTaskByID(id int) error
+	SoftDeleteTaskByID(id int) error
 	DeleteTaskByTitle(title string) error
 
 	ToggleCompleted(id int, completed bool) error
@@ -42,7 +44,7 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
-	stmt, err := r.db.Prepare("INSERT INTO tasks (google_id, title, description, completed, due, last_modified) VALUES (?, ?, ?, ?, ?, ?)")
+	stmt, err := r.db.Prepare("INSERT INTO tasks (google_id, title, description, due, last_modified) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare create task statement: %w", err)
 	}
@@ -52,9 +54,8 @@ func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 		task.GoogleID,
 		task.Title,
 		task.Description,
-		false,
 		task.Due.Format(time.RFC3339),
-		time.Now().Format(time.RFC3339),
+		time.Now().UTC().Format(time.RFC3339),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute create task statement for task '%s': %w", task.Title, err)
@@ -69,7 +70,7 @@ func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 }
 
 func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
-	rows, err := r.db.Query("SELECT id, google_id, title, description, due, completed, notified, last_modified FROM tasks ORDER BY completed, due")
+	rows, err := r.db.Query("SELECT id, google_id, title, description, due, completed, notified, last_modified, deleted FROM tasks WHERE deleted = 0 ORDER BY completed, due")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query all tasks: %w", err)
 	}
@@ -80,7 +81,33 @@ func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 		var task tasks.Task
 		var dueStr string
 		var lastModifiedStr string
-		if err := rows.Scan(&task.ID, &task.GoogleID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr); err != nil {
+		if err := rows.Scan(&task.ID, &task.GoogleID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr, &task.Deleted); err != nil {
+			return nil, fmt.Errorf("failed to scan task row: %w", err)
+		}
+		if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
+			return nil, fmt.Errorf("failed to set due/last_modified for task ID %d: %w", task.ID, err)
+		}
+		tasksList = append(tasksList, task)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating task rows: %w", err)
+	}
+	return tasksList, nil
+}
+
+func (r *taskRepository) GetAllDeletedTasks() (tasks.Tasks, error) {
+	rows, err := r.db.Query("SELECT id, google_id, title, description, due, completed, notified, last_modified, deleted FROM tasks WHERE deleted = 1 ORDER BY completed, due")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all deleted tasks: %w", err)
+	}
+	defer rows.Close()
+
+	var tasksList tasks.Tasks
+	for rows.Next() {
+		var task tasks.Task
+		var dueStr string
+		var lastModifiedStr string
+		if err := rows.Scan(&task.ID, &task.GoogleID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr, &task.Deleted); err != nil {
 			return nil, fmt.Errorf("failed to scan task row: %w", err)
 		}
 		if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
@@ -219,7 +246,7 @@ func (r *taskRepository) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(task.GoogleID, task.Title, task.Description, task.Due.Format(time.RFC3339), task.Completed, task.Notified, time.Now().Format(time.RFC3339), task.ID)
+	res, err := stmt.Exec(task.GoogleID, task.Title, task.Description, task.Due.Format(time.RFC3339), task.Completed, task.Notified, time.Now().UTC().Format(time.RFC3339), task.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute update task statement for ID %d: %w", task.ID, err)
 	}
@@ -240,7 +267,7 @@ func (r *taskRepository) UpdateGoogleID(id int, googleID string) error {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(googleID, time.Now().Format(time.RFC3339), id)
+	res, err := stmt.Exec(googleID, time.Now().UTC().Format(time.RFC3339), id)
 	if err != nil {
 		return fmt.Errorf("failed to execute update task statement for ID %d: %w", id, err)
 	}
@@ -282,7 +309,7 @@ func (r *taskRepository) MarkAsNotified(id int) error {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(time.Now().Format(time.RFC3339), id)
+	res, err := stmt.Exec(time.Now().UTC().Format(time.RFC3339), id)
 	if err != nil {
 		return fmt.Errorf("failed to execute mark as notified for task ID %d: %w", id, err)
 	}
@@ -313,6 +340,27 @@ func (r *taskRepository) DeleteTaskByID(id int) error {
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("task with ID %d not found for deletion: %w", id, ErrTaskNotFound)
+	}
+	return nil
+}
+
+func (r *taskRepository) SoftDeleteTaskByID(id int) error {
+	stmt, err := r.db.Prepare("UPDATE tasks SET deleted = ? last_modified = ? WHERE id = ?")
+	if err != nil {
+		return fmt.Errorf("failed to prepare soft delete task by ID statement: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(1, time.Now().UTC().Format(time.RFC3339))
+	if err != nil {
+		return fmt.Errorf("failed to execute soft delete task by ID %d: %w", id, err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected after soft deleting task ID %d: %w", id, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("task with ID %d not found for soft deletion: %w", id, ErrTaskNotFound)
 	}
 	return nil
 }

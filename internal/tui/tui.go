@@ -105,6 +105,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.currentState {
 			case CreationView:
 				m.currentState = m.previuosState
+			case ErrView:
+				m.currentState = m.previuosState
 			}
 			return m, nil
 		case "q":
@@ -113,8 +115,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			case ErrView:
 				m.currentState = m.previuosState
-				return m, nil
 			}
+			return m, nil
 		}
 
 	case deleteTaskMsg:

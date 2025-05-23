@@ -91,7 +91,7 @@ func (s *taskService) DeleteTaskByID(id int) error {
 			return err
 		}
 	}
-	err := s.repo.DeleteTaskByID(id)
+	err := s.repo.SoftDeleteTaskByID(id)
 	if err != nil {
 		return err
 	}
