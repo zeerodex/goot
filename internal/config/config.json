@@ -4,6 +4,6 @@
   ],
   "google": {
     "list-id": "@default",
-    "sync": true
+    "sync": false
   }
 }

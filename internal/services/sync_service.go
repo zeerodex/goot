@@ -2,56 +2,93 @@ package services
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
-func (s *taskService) processMissingGTasks(gtasks, tasks tasks.Tasks) error {
-	for _, task := range tasks {
-		_, found := gtasks.FindTaskByGoogleID(task.GoogleID)
-		if !found && !task.Deleted {
+func (s *taskService) processMissingGTasks(gtasks, ltasks tasks.Tasks) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(ltasks))
+
+	semaphore := make(chan struct{}, 5)
+
+	for _, task := range ltasks {
+		if _, found := gtasks.FindTaskByGoogleID(task.GoogleID); found || task.Deleted {
+			continue
+		}
+
+		wg.Add(1)
+		go func(t tasks.Task) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
 			_, err := s.gApi.CreateTask(&task)
 			if err != nil {
-				return fmt.Errorf("failed to create local task for Google ID '%s': %w", task.GoogleID, err)
+				errChan <- fmt.Errorf("failed to create local task for Google ID '%s': %w", task.GoogleID, err)
+				return
 			}
 			gtasks = append(gtasks, task)
 
 			err = s.repo.UpdateGoogleID(task.ID, task.GoogleID)
 			if err != nil {
-				return fmt.Errorf("failed to update Google ID '%s' of task ID %d: %w", task.GoogleID, task.ID, err)
+				errChan <- fmt.Errorf("failed to update Google ID '%s' of task ID %d: %w", task.GoogleID, task.ID, err)
+				return
 			}
+		}(task)
+
+	}
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	for err := range errChan {
+		if err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
 
-func (s *taskService) processMissingLocalTasks(gtasks, tasks tasks.Tasks) error {
+func (s *taskService) processMissingLocalTasks(gtasks, ltasks tasks.Tasks) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(gtasks))
+
+	fmt.Println(gtasks)
 	for _, gtask := range gtasks {
-		task, found := tasks.FindTaskByGoogleID(gtask.GoogleID)
+		task, found := ltasks.FindTaskByGoogleID(gtask.GoogleID)
 		if !found {
 			if gtask.Deleted {
 				continue
 			}
-			var err error
-			task, err = s.repo.CreateTask(&gtask)
-			if err != nil {
-				return fmt.Errorf("failed to create local task for Google ID '%s': %w", gtask.GoogleID, err)
-			}
-			tasks = append(tasks, *task)
+			wg.Add(1)
+			go func(gt tasks.Task) {
+				defer wg.Done()
+
+				var err error
+				task, err = s.repo.CreateTask(&gtask)
+				if err != nil {
+					errChan <- fmt.Errorf("failed to create local task for Google ID '%s': %w", gtask.GoogleID, err)
+					return
+				}
+			}(gtask)
 			continue
 		}
 
 		gtask.ID = task.ID
 
 		if gtask.Deleted {
-			err := s.repo.DeleteTaskByID(gtask.ID)
+			err := s.repo.DeleteTaskByID(task.ID)
 			if err != nil {
 				return fmt.Errorf("failed to delete marked as deleted task ID %d: %w", gtask.ID, err)
 			}
 			return nil
 		}
 		if task.Deleted {
-			err := s.gApi.DeleteTaskByID(task.GoogleID)
+			err := s.gApi.DeleteTaskByID(gtask.GoogleID)
 			if err != nil {
 				return fmt.Errorf("failed to delete marked as deleted task ID %d: %w", task.ID, err)
 			}
@@ -62,18 +99,39 @@ func (s *taskService) processMissingLocalTasks(gtasks, tasks tasks.Tasks) error 
 		if timeDiff != 0 {
 			switch timeDiff {
 			case -1:
-				_, err := s.gApi.PatchTask(task)
-				if err != nil {
-					return fmt.Errorf("failed to patch google task (Google ID '%s') with newer local task (ID %d): %w", task.GoogleID, task.ID, err)
-				}
+				wg.Add(1)
+				go func(t tasks.Task) {
+					defer wg.Done()
+					_, err := s.gApi.PatchTask(&t)
+					if err != nil {
+						errChan <- fmt.Errorf("failed to patch google task (Google ID '%s') with newer local task (ID %d): %w", task.GoogleID, task.ID, err)
+						return
+					}
+				}(*task)
 			case 1:
-				_, err := s.repo.UpdateTask(&gtask)
-				if err != nil {
-					return fmt.Errorf("failed to update local task (ID %d) with newer Google task (Google ID '%s'): %w", gtask.ID, gtask.GoogleID, err)
-				}
+				wg.Add(1)
+				go func(gt tasks.Task) {
+					defer wg.Done()
+					_, err := s.repo.UpdateTask(&gt)
+					if err != nil {
+						errChan <- fmt.Errorf("failed to update local task (ID %d) with newer Google task (Google ID '%s'): %w", gtask.ID, gtask.GoogleID, err)
+						return
+					}
+				}(gtask)
 			}
 		}
 	}
+	go func() {
+		wg.Done()
+		close(errChan)
+	}()
+
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

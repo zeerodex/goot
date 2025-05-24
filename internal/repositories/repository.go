@@ -98,7 +98,7 @@ func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 func (r *taskRepository) GetAllDeletedTasks() (tasks.Tasks, error) {
 	rows, err := r.db.Query("SELECT id, google_id, title, description, due, completed, notified, last_modified, deleted FROM tasks WHERE deleted = 1 ORDER BY completed, due")
 	if err != nil {
-		return nil, fmt.Errorf("failed to query all deleted tasks: %w", err)
+		return nil, fmt.Errorf("failed to query all tasks: %w", err)
 	}
 	defer rows.Close()
 
@@ -345,13 +345,13 @@ func (r *taskRepository) DeleteTaskByID(id int) error {
 }
 
 func (r *taskRepository) SoftDeleteTaskByID(id int) error {
-	stmt, err := r.db.Prepare("UPDATE tasks SET deleted = ? last_modified = ? WHERE id = ?")
+	stmt, err := r.db.Prepare("UPDATE tasks SET deleted = ?, last_modified = ? WHERE id = ?")
 	if err != nil {
 		return fmt.Errorf("failed to prepare soft delete task by ID statement: %w", err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(1, time.Now().UTC().Format(time.RFC3339))
+	res, err := stmt.Exec(1, time.Now().UTC().Format(time.RFC3339), id)
 	if err != nil {
 		return fmt.Errorf("failed to execute soft delete task by ID %d: %w", id, err)
 	}
