@@ -53,6 +53,7 @@ type listKeyMap struct {
 	deleteTask     key.Binding
 	createTask     key.Binding
 	toogleComplete key.Binding
+	syncTasks      key.Binding
 }
 
 func newListKeyMap() *listKeyMap {
@@ -68,6 +69,10 @@ func newListKeyMap() *listKeyMap {
 		toogleComplete: key.NewBinding(
 			key.WithKeys("t"),
 			key.WithHelp("t", "toggle completed"),
+		),
+		syncTasks: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "sync tasks"),
 		),
 	}
 }
@@ -119,6 +124,9 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				statusCmd := m.list.NewStatusMessage(statusMessageStyle("Toggle completed for " + selected.TitleOnly()))
 				m.Selected = selected
 				return m, statusCmd
+			case key.Matches(msg, m.keys.syncTasks):
+				m.Method = "sync"
+				return m, nil
 			}
 		}
 	}
@@ -153,6 +161,7 @@ func InitialListModel() ListModel {
 			listKeys.createTask,
 			listKeys.deleteTask,
 			listKeys.toogleComplete,
+			listKeys.syncTasks,
 		}
 	}
 	list.AdditionalFullHelpKeys = func() []key.Binding {
@@ -160,6 +169,7 @@ func InitialListModel() ListModel {
 			listKeys.createTask,
 			listKeys.deleteTask,
 			listKeys.toogleComplete,
+			listKeys.syncTasks,
 		}
 	}
 

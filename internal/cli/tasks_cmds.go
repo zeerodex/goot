@@ -169,7 +169,7 @@ func NewSyncTasks(s services.TaskService) *cobra.Command {
 		Short: "Sync tasks with apis",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return s.SyncGTasks()
+			return s.Sync()
 		},
 	}
 }

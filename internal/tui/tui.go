@@ -28,6 +28,16 @@ type MainModel struct {
 	err   error
 }
 
+func syncTasksCmd(s services.TaskService) tea.Cmd {
+	return func() tea.Msg {
+		err := s.Sync()
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return fetchTasksCmd(s)()
+	}
+}
+
 func fetchTasksCmd(s services.TaskService) tea.Cmd {
 	return func() tea.Msg {
 		tasks, err := s.GetAllTasks()
@@ -67,6 +77,8 @@ func toggleCompletedCmd(s services.TaskService, id int, completed bool) tea.Cmd 
 		return fetchTasksCmd(s)()
 	}
 }
+
+type syncTasksMsg struct{}
 
 type fetchedTasksMsg struct {
 	Tasks tasks.Tasks
@@ -118,6 +130,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+	case syncTasksMsg:
+		cmds = append(cmds, syncTasksCmd(m.s))
 
 	case deleteTaskMsg:
 		cmds = append(cmds, deleteTaskCmd(m.s, msg.id))
@@ -152,23 +166,26 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.listModel = listModel.(components.ListModel)
 		cmds = append(cmds, listCmd)
 
-		if m.listModel.Method == "delete" {
+		switch m.listModel.Method {
+		case "delete":
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
 				return deleteTaskMsg{id: m.listModel.Selected.ID()}
 			})
-		}
-		if m.listModel.Method == "create" {
+		case "create":
 			m.listModel.Method = ""
 			m.previuosState = m.currentState
 			m.currentState = CreationView
-		}
-		if m.listModel.Method == "toogle" {
+		case "toogle":
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
 				return toggleCompletedMsg{id: m.listModel.Selected.ID(), completed: !m.listModel.Selected.Completed()}
 			})
-
+		case "sync":
+			m.listModel.Method = ""
+			cmds = append(cmds, func() tea.Msg {
+				return syncTasksMsg{}
+			})
 		}
 
 	case CreationView:

@@ -1,24 +1,22 @@
-package gtaskscmds
+package cli
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/zeerodex/goot/internal/apis"
 	"github.com/zeerodex/goot/internal/config"
+	"github.com/zeerodex/goot/internal/services"
 )
 
-func NewGoogleCmds(api apis.API) *cobra.Command {
-	cmd := &cobra.Command{
-		Use: "gtasks",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Please specify what you want to do. Use --help for options")
+func NewSyncTasks(s services.TaskService) *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync",
+		Short: "Sync tasks with apis",
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return s.Sync()
 		},
 	}
-
-	cmd.AddCommand(newEnableSyncingCmd())
-	return cmd
 }
 
 func newEnableSyncingCmd() *cobra.Command {

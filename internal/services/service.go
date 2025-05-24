@@ -19,7 +19,7 @@ type TaskService interface {
 	MarkAsNotified(id int) error
 	DeleteTaskByID(id int) error
 
-	SyncGTasks() error
+	Sync() error
 
 	GetGApi() apis.API
 }
@@ -37,6 +37,17 @@ func NewTaskService(repo repositories.TaskRepository, gApi apis.API, gSync bool)
 
 func (s *taskService) GetGApi() apis.API {
 	return s.gApi
+}
+
+func (s *taskService) Sync() error {
+	var err error
+	if s.gSync {
+		err = s.SyncGTasks()
+	}
+	if err != nil {
+		return fmt.Errorf("failed to sync apis: %w", err)
+	}
+	return nil
 }
 
 func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {

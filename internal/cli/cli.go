@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"log"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,6 +39,13 @@ func Execute(s services.TaskService, cfg *config.Config) {
 	rootCmd.AddCommand(commands...)
 
 	rootCmd.AddCommand(gtaskscmds.NewGoogleCmds(s.GetGApi()))
+
+	if cfg.SyncOnStartup {
+		err := s.Sync()
+		if err != nil {
+			log.Printf("Failed to sync tasks on startup: %v", err)
+		}
+	}
 
 	err := rootCmd.Execute()
 	if err != nil {

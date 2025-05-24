@@ -12,6 +12,7 @@ type Config struct {
 		Sync   bool   `mapstructure:"sync"`
 		ListId string `mapstructure:"list-id"`
 	} `mapstructure:"google"`
+	SyncOnStartup bool `mapstructure:"sync-on-startup"`
 }
 
 func LoadConfig(cfgPath string) (*Config, error) {
