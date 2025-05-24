@@ -166,7 +166,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.listModel.Method == "toogle" {
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
-				return toggleCompletedMsg{id: m.listModel.Selected.ID(), completed: m.listModel.Selected.Completed()}
+				return toggleCompletedMsg{id: m.listModel.Selected.ID(), completed: !m.listModel.Selected.Completed()}
 			})
 
 		}

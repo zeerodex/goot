@@ -64,7 +64,7 @@ func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
 }
 
 func (api *GTasksApi) GetAllTasksWithDeleted() (tasks.Tasks, error) {
-	gtasks, err := api.srv.Tasks.List(api.ListId).ShowDeleted(true).ShowCompleted(true).Do()
+	gtasks, err := api.srv.Tasks.List(api.ListId).ShowDeleted(true).ShowCompleted(true).ShowHidden(true).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve all deleted tasks from list '%s': %w", api.ListId, err)
 	}
@@ -120,6 +120,13 @@ func ConvertGTask(g *gtasks.Task) *tasks.Task {
 		t.Due, _ = time.Parse(time.RFC3339, g.Due)
 	}
 	t.LastModified, _ = time.Parse(time.RFC3339, g.Updated)
+	if g.Completed != nil {
+		completedTime, _ := time.Parse(time.RFC3339, *g.Completed)
+		timeDiff := t.LastModified.Compare(completedTime)
+		if timeDiff == -1 {
+			t.LastModified = completedTime
+		}
+	}
 	return t
 }
 

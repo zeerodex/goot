@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/zeerodex/goot/internal/apis"
@@ -39,16 +40,23 @@ func (s *taskService) GetGApi() apis.API {
 }
 
 func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {
-	if s.gSync {
-		_, err := s.gApi.CreateTask(task)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create task in Google API: %w", err)
-		}
-	}
-
 	task, err := s.repo.CreateTask(task)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task in repository: %w", err)
+	}
+
+	if s.gSync {
+		go func(task *tasks.Task) {
+			gtask, err := s.gApi.CreateTask(task)
+			if err != nil {
+				log.Println(err)
+			}
+
+			err = s.repo.UpdateGoogleID(task.ID, gtask.GoogleID)
+			if err != nil {
+				log.Println(err)
+			}
+		}(task)
 	}
 
 	return task, nil
@@ -68,29 +76,35 @@ func (s *taskService) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Task
 
 func (s *taskService) ToggleCompleted(id int, completed bool) error {
 	if s.gSync {
-		id, err := s.repo.GetTaskGoogleID(id)
-		if err != nil {
-			return err
-		}
-		err = s.gApi.ToggleCompleted(id, completed)
-		if err != nil {
-			return err
-		}
+		go func(id int, completed bool) {
+			googleId, err := s.repo.GetTaskGoogleID(id)
+			if err != nil {
+				log.Println(err)
+			}
+			err = s.gApi.ToggleCompleted(googleId, completed)
+			if err != nil {
+				log.Println(err)
+			}
+		}(id, completed)
 	}
+
 	return s.repo.ToggleCompleted(id, completed)
 }
 
 func (s *taskService) DeleteTaskByID(id int) error {
 	if s.gSync {
-		googleId, err := s.repo.GetTaskGoogleID(id)
-		if err != nil {
-			return err
-		}
-		err = s.gApi.DeleteTaskByID(googleId)
-		if err != nil {
-			return err
-		}
+		go func(id int) {
+			googleId, err := s.repo.GetTaskGoogleID(id)
+			if err != nil {
+				log.Println(err)
+			}
+			err = s.gApi.DeleteTaskByID(googleId)
+			if err != nil {
+				log.Println(err)
+			}
+		}(id)
 	}
+
 	err := s.repo.SoftDeleteTaskByID(id)
 	if err != nil {
 		return err
