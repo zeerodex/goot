@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 
-	"github.com/zeerodex/goot/internal/apis/gtasksapi"
 	cmd "github.com/zeerodex/goot/internal/cli"
 	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/database"
@@ -23,8 +22,10 @@ func main() {
 	}
 	defer db.Close()
 
-	gApi := gtasksapi.NewGTasksApi(cfg.Google.ListId)
-	service := services.NewTaskService(repositories.NewTaskRepository(db), gApi, cfg.Google.Sync)
+	service, err := services.NewTaskService(repositories.NewTaskRepository(db), cfg)
+	if err != nil {
+		log.Fatalf("Unable to initialize service: %v", err)
+	}
 
 	cmd.Execute(service, cfg)
 }

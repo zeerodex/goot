@@ -7,7 +7,7 @@ import (
 )
 
 type Config struct {
-	APIs   []string `mapstructure:"apis"`
+	APIs   map[string]bool `mapstructure:"apis"`
 	Google struct {
 		Sync   bool   `mapstructure:"sync"`
 		ListId string `mapstructure:"list-id"`
@@ -34,5 +34,15 @@ func LoadConfig(cfgPath string) (*Config, error) {
 
 func SetGoogleSync(v bool) {
 	viper.Set("google.sync", v)
+	viper.WriteConfig()
+}
+
+func SetSyncOnStartup(v bool) {
+	viper.Set("sync-on-startup", v)
+	viper.WriteConfig()
+}
+
+func SetAPIs(apis map[string]bool) {
+	viper.Set("apis", apis)
 	viper.WriteConfig()
 }

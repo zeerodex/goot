@@ -115,7 +115,12 @@ func NewDeleteTaskCmd(s services.TaskService) *cobra.Command {
 					fmt.Println(err)
 					return
 				}
-				id = tui.ChooseTask(tasks)
+				var ok bool
+				id, ok = tui.ChooseTask(tasks)
+				if !ok {
+					fmt.Println("No tasks specified")
+					return
+				}
 			} else {
 				var err error
 				id, err = strconv.Atoi(args[0])
@@ -146,7 +151,12 @@ func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				id = tui.ChooseTask(tasks)
+				var ok bool
+				id, ok = tui.ChooseTask(tasks)
+				if !ok {
+					fmt.Println("No tasks specified")
+					return nil
+				}
 			} else {
 				var err error
 				id, err = strconv.Atoi(args[0])
@@ -159,17 +169,6 @@ func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 				return fmt.Errorf("failed to mark task completed: %w", err)
 			}
 			return nil
-		},
-	}
-}
-
-func NewSyncTasks(s services.TaskService) *cobra.Command {
-	return &cobra.Command{
-		Use:   "sync",
-		Short: "Sync tasks with apis",
-		Args:  cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return s.Sync()
 		},
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/zeerodex/goot/internal/apis"
+	"github.com/zeerodex/goot/internal/apis/gtasksapi"
+	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/repositories"
 	"github.com/zeerodex/goot/internal/tasks"
 )
@@ -31,8 +33,20 @@ type taskService struct {
 	gSync bool
 }
 
-func NewTaskService(repo repositories.TaskRepository, gApi apis.API, gSync bool) TaskService {
-	return &taskService{repo: repo, gApi: gApi, gSync: gSync}
+func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskService, error) {
+	var gApi apis.API
+	gSync := false
+	for api, enabled := range cfg.APIs {
+		if api == "google" && enabled {
+			srv, err := gtasksapi.GetService()
+			if err != nil {
+				return nil, fmt.Errorf("failed to enable Google API: %v", err)
+			}
+			gApi = gtasksapi.NewGTasksApi(srv, cfg.Google.ListId)
+			gSync = true
+		}
+	}
+	return &taskService{repo: repo, gApi: gApi, gSync: gSync}, nil
 }
 
 func (s *taskService) GetGApi() apis.API {

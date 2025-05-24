@@ -1,7 +1,9 @@
 {
-  "apis": [
-    "google"
-  ],
+  "apis": {
+    "google": true,
+    "ticktick": false,
+    "todoist": false
+  },
   "google": {
     "list-id": "@default",
     "sync": true

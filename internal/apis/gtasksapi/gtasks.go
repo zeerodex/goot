@@ -16,8 +16,8 @@ type GTasksApi struct {
 	ListId string
 }
 
-func NewGTasksApi(listId string) apis.API {
-	return &GTasksApi{srv: GetService(), ListId: listId}
+func NewGTasksApi(srv *gtasks.Service, listId string) apis.API {
+	return &GTasksApi{srv: srv, ListId: listId}
 }
 
 func (api *GTasksApi) CreateTask(task *tasks.Task) (*tasks.Task, error) {

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -14,33 +15,41 @@ import (
 	"google.golang.org/api/tasks/v1"
 )
 
-var tokFile = "token.json"
+var (
+	tokFile         = "token.json"
+	credentialsFile = "credentials.json"
+)
 
-func getClient() *http.Client {
+func getClient() (*http.Client, error) {
+	config := getConfig()
+
 	tok, err := tokenFromFile(tokFile)
 	if err != nil {
-		Login()
-		getClient()
+		fmt.Println("No token found or token invalid. Please log in")
+		tok, err := getTokenFromWeb(config)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get token from web: %w", err)
+		}
+		saveToken(tokFile, tok)
 	}
-	config := getConfig()
-	return config.Client(context.Background(), tok)
+	return config.Client(context.Background(), tok), nil
 }
 
-func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
+func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("Unable to read authorization code: %v", err)
+		return nil, fmt.Errorf("unable to read authorization code: %w", err)
 	}
 
 	tok, err := config.Exchange(context.TODO(), authCode)
 	if err != nil {
-		log.Fatalf("Unable to retrieve token from web: %v", err)
+		return nil, fmt.Errorf("unable to retrieve token from web: %w", err)
 	}
-	return tok
+	return tok, nil
 }
 
 func tokenFromFile(file string) (*oauth2.Token, error) {
@@ -50,7 +59,13 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	}
 	defer f.Close()
 	tok := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(tok)
+	if err = json.NewDecoder(f).Decode(tok); err != nil {
+		return nil, fmt.Errorf("failed to decode token from file '%s': %w", tokFile, err)
+	}
+
+	if tok.Expiry.Before(time.Now()) {
+		return nil, fmt.Errorf("token from file '%s' has expired", tokFile)
+	}
 	return tok, err
 }
 
@@ -78,19 +93,35 @@ func getConfig() *oauth2.Config {
 	return config
 }
 
-func Logout() {
-	os.Remove(tokFile)
-}
-
-func Login() {
-	tok := getTokenFromWeb(getConfig())
-	saveToken(tokFile, tok)
-}
-
-func GetService() *tasks.Service {
-	srv, err := tasks.NewService(context.Background(), option.WithHTTPClient(getClient()))
-	if err != nil {
-		log.Fatalf("Unable to retrieve tasks Client %v", err)
+func Logout() error {
+	if err := os.Remove(tokFile); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("token file '%s' does not exist, nothing to log out", tokFile)
+		}
+		return fmt.Errorf("unable to remove token file '%s': %w", tokFile, err)
 	}
-	return srv
+	fmt.Printf("Logged out successfully. Removed token file '%s'", tokFile)
+	return nil
+}
+
+func Login() error {
+	config := getConfig()
+	tok, err := getTokenFromWeb(config)
+	if err != nil {
+		return fmt.Errorf("login failed: %w", err)
+	}
+	saveToken(tokFile, tok) // saveToken already logs fatal on error, so no need to check here
+	return nil
+}
+
+func GetService() (*tasks.Service, error) {
+	client, err := getClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get authenticated client: %w", err)
+	}
+	srv, err := tasks.NewService(context.Background(), option.WithHTTPClient(client))
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve tasks service: %w", err)
+	}
+	return srv, nil
 }

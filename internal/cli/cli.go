@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	gtaskscmds "github.com/zeerodex/goot/internal/cli/apis/gtasks_cmds"
 	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tui"
@@ -32,13 +31,12 @@ func Execute(s services.TaskService, cfg *config.Config) {
 		NewAllTasksCmd(s),
 		NewDeleteTaskCmd(s),
 		NewDoneTaskCmd(s),
-		NewSyncTasks(s),
 
 		NewDaemonCmd(s),
+
+		NewSyncCmd(s, cfg.APIs),
 	}
 	rootCmd.AddCommand(commands...)
-
-	rootCmd.AddCommand(gtaskscmds.NewGoogleCmds(s.GetGApi()))
 
 	if cfg.SyncOnStartup {
 		err := s.Sync()

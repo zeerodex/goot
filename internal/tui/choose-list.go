@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 
@@ -102,7 +101,7 @@ func (m ChoiceListModel) View() string {
 	return m.list.View()
 }
 
-func chooseTask(tasks tasks.Tasks, p string) string {
+func chooseTask(tasks tasks.Tasks, p string) (string, bool) {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
 		var item item
@@ -131,28 +130,30 @@ func chooseTask(tasks tasks.Tasks, p string) string {
 
 	finalModel, err := tea.NewProgram(m).Run()
 	if err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	if final, ok := finalModel.(ChoiceListModel); ok {
 		if final.quitting {
-			return ""
+			return "", false
 		}
-		return final.choice
+		return final.choice, true
 	}
-	return ""
+	return "", false
 }
 
-func ChooseGTask(tasks tasks.Tasks) string {
+func ChooseGTask(tasks tasks.Tasks) (string, bool) {
 	return chooseTask(tasks, "gtasks")
 }
 
-func ChooseTask(tasks tasks.Tasks) int {
-	strId := chooseTask(tasks, "tasks")
+func ChooseTask(tasks tasks.Tasks) (int, bool) {
+	strId, ok := chooseTask(tasks, "tasks")
+	if !ok {
+		return 0, false
+	}
 	id, err := strconv.Atoi(strId)
 	if err != nil {
-		log.Fatalf("Unabel to get task id: %v", err)
+		log.Fatalf("Unable to get task id: %v", err)
 	}
-	return id
+	return id, true
 }
