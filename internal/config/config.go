@@ -13,6 +13,11 @@ type Config struct {
 		ListId string `mapstructure:"list-id"`
 	} `mapstructure:"google"`
 	SyncOnStartup bool `mapstructure:"sync-on-startup"`
+
+	MaxLength struct {
+		Title       int `mapstructure:"title"`
+		Description int `mapstructure:"description"`
+	} `mapstructure:"max-length"`
 }
 
 func LoadConfig(cfgPath string) (*Config, error) {

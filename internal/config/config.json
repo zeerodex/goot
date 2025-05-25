@@ -8,5 +8,9 @@
     "list-id": "@default",
     "sync": true
   },
-  "sync-on-startup": true
+  "sync-on-startup": true,
+  "max-length": {
+    "title": 1024,
+    "description": 8196
+  }
 }

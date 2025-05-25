@@ -29,13 +29,13 @@ type TaskService interface {
 type taskService struct {
 	repo repositories.TaskRepository
 
-	gApi  apis.API
-	gSync bool
+	gApi apis.API
+
+	cfg *config.Config
 }
 
 func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskService, error) {
 	var gApi apis.API
-	gSync := false
 	for api, enabled := range cfg.APIs {
 		if api == "google" && enabled {
 			srv, err := gtasksapi.GetService()
@@ -43,10 +43,9 @@ func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskS
 				return nil, fmt.Errorf("failed to enable Google API: %v", err)
 			}
 			gApi = gtasksapi.NewGTasksApi(srv, cfg.Google.ListId)
-			gSync = true
 		}
 	}
-	return &taskService{repo: repo, gApi: gApi, gSync: gSync}, nil
+	return &taskService{repo: repo, gApi: gApi, cfg: cfg}, nil
 }
 
 func (s *taskService) GetGApi() apis.API {
@@ -55,7 +54,7 @@ func (s *taskService) GetGApi() apis.API {
 
 func (s *taskService) Sync() error {
 	var err error
-	if s.gSync {
+	if s.cfg.Google.Sync {
 		err = s.SyncGTasks()
 	}
 	if err != nil {
@@ -65,12 +64,15 @@ func (s *taskService) Sync() error {
 }
 
 func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {
+	if err := s.ValidateTask(task); err != nil {
+		return nil, fmt.Errorf("unable to validate task: %w", err)
+	}
 	task, err := s.repo.CreateTask(task)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task in repository: %w", err)
 	}
 
-	if s.gSync {
+	if s.cfg.Google.Sync {
 		go func(task *tasks.Task) {
 			gtask, err := s.gApi.CreateTask(task)
 			if err != nil {
@@ -100,7 +102,7 @@ func (s *taskService) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Task
 }
 
 func (s *taskService) ToggleCompleted(id int, completed bool) error {
-	if s.gSync {
+	if s.cfg.Google.Sync {
 		go func(id int, completed bool) {
 			googleId, err := s.repo.GetTaskGoogleID(id)
 			if err != nil {
@@ -117,7 +119,7 @@ func (s *taskService) ToggleCompleted(id int, completed bool) error {
 }
 
 func (s *taskService) DeleteTaskByID(id int) error {
-	if s.gSync {
+	if s.cfg.Google.Sync {
 		go func(id int) {
 			googleId, err := s.repo.GetTaskGoogleID(id)
 			if err != nil {
@@ -143,4 +145,14 @@ func (s *taskService) GetTaskGoogleID(id int) (string, error) {
 
 func (s *taskService) MarkAsNotified(id int) error {
 	return s.repo.MarkAsNotified(id)
+}
+
+func (s *taskService) ValidateTask(task *tasks.Task) error {
+	if len(task.Title) > s.cfg.MaxLength.Title {
+		return fmt.Errorf("allowed length of task title - %d", s.cfg.MaxLength.Title)
+	}
+	if len(task.Description) > s.cfg.MaxLength.Description {
+		return fmt.Errorf("allowed length of task description - %d", s.cfg.MaxLength.Description)
+	}
+	return nil
 }

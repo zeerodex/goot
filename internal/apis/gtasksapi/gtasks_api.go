@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -63,9 +62,6 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 		return nil, fmt.Errorf("failed to decode token from file '%s': %w", tokFile, err)
 	}
 
-	if tok.Expiry.Before(time.Now()) {
-		return nil, fmt.Errorf("token from file '%s' has expired", tokFile)
-	}
 	return tok, err
 }
 

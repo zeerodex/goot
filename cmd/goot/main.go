@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	cmd "github.com/zeerodex/goot/internal/cli"
+	"github.com/zeerodex/goot/internal/cli"
 	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/database"
 	"github.com/zeerodex/goot/internal/repositories"
@@ -27,5 +27,5 @@ func main() {
 		log.Fatalf("Unable to initialize service: %v", err)
 	}
 
-	cmd.Execute(service, cfg)
+	cli.Execute(service, cfg)
 }

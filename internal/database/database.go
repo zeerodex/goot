@@ -28,7 +28,7 @@ func InitDB() (*sql.DB, error) {
 	last_modified TEXT,
 	completed BOOl DEFAULT 0,
 	deleted BOOLEAN DEFAULT 0,
-	notified BOOLEAN DEFAULT 0)` // title up to 1024 symbols, description up to 8192 symbols
+	notified BOOLEAN DEFAULT 0)`
 
 	_, err = db.Exec(stmt)
 	if err != nil {

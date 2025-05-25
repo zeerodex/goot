@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/zeerodex/goot/internal/config"
@@ -20,7 +18,12 @@ func NewSyncCmd(s services.TaskService, apis map[string]bool) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println("Successfully synced")
+			cmd.Println("Successfully synced APIs:")
+			for api, enabled := range apis {
+				if enabled {
+					cmd.Println(" - " + api)
+				}
+			}
 			return nil
 		},
 	}

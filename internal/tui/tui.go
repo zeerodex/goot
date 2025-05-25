@@ -210,7 +210,7 @@ func (m MainModel) View() string {
 	case CreationView:
 		return m.creationModel.View()
 	case ErrView:
-		return m.err.Error()
+		return "Error: " + m.err.Error()
 	}
 	return ""
 }

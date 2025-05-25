@@ -23,19 +23,19 @@ func NewAllTasksCmd(s services.TaskService) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			tasks, err := s.GetAllTasks()
 			if err != nil {
-				fmt.Println(err)
+				cmd.Println(err)
 				return
 			}
 			if jsonFormat {
 				b, err := json.MarshalIndent(&tasks, "", " ")
 				if err != nil {
-					fmt.Println(err)
+					cmd.Println(err)
 				}
 				os.Stdout.Write(b)
-				fmt.Println()
+				cmd.Println()
 			} else {
 				for _, task := range tasks {
-					fmt.Println(task.Task())
+					cmd.Println(task.Task())
 				}
 			}
 		},
@@ -53,17 +53,7 @@ func NewCreateCmd(s services.TaskService) *cobra.Command {
 		Args:  cobra.RangeArgs(1, 4),
 		Run: func(cmd *cobra.Command, args []string) {
 			var task tasks.Task
-			// TODO: max length to cfg
-			if len(args[0]) > 1024 {
-				fmt.Println("Length of title is up to 1024 characters")
-				return
-			}
 			task.Title = args[0]
-			if len(description) > 8192 {
-				fmt.Println("Length of description is up to 8192 characters")
-				return
-
-			}
 			task.Description = description
 
 			var dueStr string
@@ -84,17 +74,17 @@ func NewCreateCmd(s services.TaskService) *cobra.Command {
 
 			due, err := timeutil.ParseAndValidateTimestamp(dueStr)
 			if err != nil {
-				fmt.Println(err.Error())
+				cmd.Println(err.Error())
 				return
 			}
 			task.Due = due
 
 			_, err = s.CreateTask(&task)
 			if err != nil {
-				fmt.Printf("Error creating task: %v", err)
+				cmd.Printf("Error creating task: %v", err)
 				return
 			}
-			fmt.Println(task.Task())
+			cmd.Println(task.Task())
 		},
 	}
 	cmd.Flags().StringVarP(&dueTimeStr, "time", "t", "", "Due time (HH:MM)")
@@ -112,26 +102,26 @@ func NewDeleteTaskCmd(s services.TaskService) *cobra.Command {
 			if len(args) == 0 {
 				tasks, err := s.GetAllTasks()
 				if err != nil {
-					fmt.Println(err)
+					cmd.Println(err)
 					return
 				}
 				var ok bool
 				id, ok = tui.ChooseTask(tasks)
 				if !ok {
-					fmt.Println("No tasks specified")
+					cmd.Println("No tasks specified")
 					return
 				}
 			} else {
 				var err error
 				id, err = strconv.Atoi(args[0])
 				if err != nil {
-					fmt.Printf("Incorrect task id: %v", err)
+					cmd.Printf("Incorrect task id: %v", err)
 					return
 				}
 			}
 			err := s.DeleteTaskByID(id)
 			if err != nil {
-				fmt.Println(err)
+				cmd.Println(err)
 				return
 			}
 		},
@@ -154,7 +144,7 @@ func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 				var ok bool
 				id, ok = tui.ChooseTask(tasks)
 				if !ok {
-					fmt.Println("No tasks specified")
+					cmd.Println("No tasks specified")
 					return nil
 				}
 			} else {
