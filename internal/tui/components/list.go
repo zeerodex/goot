@@ -52,6 +52,7 @@ func (i item) FilterValue() string { return i.title }
 type listKeyMap struct {
 	deleteTask     key.Binding
 	createTask     key.Binding
+	updateTask     key.Binding
 	toogleComplete key.Binding
 	syncTasks      key.Binding
 }
@@ -65,6 +66,10 @@ func newListKeyMap() *listKeyMap {
 		deleteTask: key.NewBinding(
 			key.WithKeys("d"),
 			key.WithHelp("d", "delete"),
+		),
+		updateTask: key.NewBinding(
+			key.WithKeys("u"),
+			key.WithHelp("u", "update"),
 		),
 		toogleComplete: key.NewBinding(
 			key.WithKeys("t"),
@@ -115,6 +120,13 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Selected = selected
 					return m, statusCmd
 				}
+			case key.Matches(msg, m.keys.updateTask):
+				if m.list.SelectedItem() != nil {
+					m.Method = "update"
+					selected := m.list.SelectedItem().(item)
+					m.Selected = selected
+					return m, nil
+				}
 			case key.Matches(msg, m.keys.createTask):
 				m.Method = "create"
 				return m, nil
@@ -159,6 +171,7 @@ func InitialListModel() ListModel {
 	list.AdditionalShortHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			listKeys.createTask,
+			listKeys.updateTask,
 			listKeys.deleteTask,
 			listKeys.toogleComplete,
 			listKeys.syncTasks,
@@ -167,6 +180,7 @@ func InitialListModel() ListModel {
 	list.AdditionalFullHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			listKeys.createTask,
+			listKeys.updateTask,
 			listKeys.deleteTask,
 			listKeys.toogleComplete,
 			listKeys.syncTasks,

@@ -13,6 +13,7 @@ type AppState int
 const (
 	ListView AppState = iota
 	CreationView
+	UpdateView
 	ErrView
 )
 
@@ -38,6 +39,16 @@ func syncTasksCmd(s services.TaskService) tea.Cmd {
 	}
 }
 
+func updateTaskCmd(s services.TaskService, task *tasks.Task) tea.Cmd {
+	return func() tea.Msg {
+		_, err := s.UpdateTask(task)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return fetchTasksCmd(s)()
+	}
+}
+
 func fetchTasksCmd(s services.TaskService) tea.Cmd {
 	return func() tea.Msg {
 		tasks, err := s.GetAllTasks()
@@ -48,9 +59,9 @@ func fetchTasksCmd(s services.TaskService) tea.Cmd {
 	}
 }
 
-func createTaskCmd(s services.TaskService, task tasks.Task) tea.Cmd {
+func createTaskCmd(s services.TaskService, task *tasks.Task) tea.Cmd {
 	return func() tea.Msg {
-		_, err := s.CreateTask(&task)
+		_, err := s.CreateTask(task)
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -94,7 +105,15 @@ type toggleCompletedMsg struct {
 }
 
 type createTaskMsg struct {
-	Task components.Task
+	Task *tasks.Task
+}
+
+type updateTaskMsg struct {
+	id int
+}
+
+type updatedTaskMsg struct {
+	Task *tasks.Task
 }
 
 type errMsg struct {
@@ -143,13 +162,23 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tasks = msg.Tasks
 		cmds = append(cmds, m.listModel.SetTasks(m.tasks))
 
-	case createTaskMsg:
-		var task tasks.Task
-		task.Title = msg.Task.Title
-		task.Description = msg.Task.Description
-		task.Due = msg.Task.Due
+	case updateTaskMsg:
+		task, err := m.s.GetTaskByID(msg.id)
+		if err != nil {
+			m.err = err
+			m.currentState = ErrView
+		}
+		m.creationModel = components.InitialUpdateModel(task)
+		m.currentState = CreationView
 
-		cmds = append(cmds, createTaskCmd(m.s, task))
+	case updatedTaskMsg:
+		cmds = append(cmds, updateTaskCmd(m.s, msg.Task))
+		m.creationModel = components.InitialCreationModel()
+
+		m.currentState = m.previuosState
+
+	case createTaskMsg:
+		cmds = append(cmds, createTaskCmd(m.s, msg.Task))
 		m.creationModel = components.InitialCreationModel()
 
 		m.currentState = m.previuosState
@@ -176,6 +205,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.listModel.Method = ""
 			m.previuosState = m.currentState
 			m.currentState = CreationView
+		case "update":
+			m.listModel.Method = ""
+			m.previuosState = m.currentState
+			cmds = append(cmds, func() tea.Msg {
+				return updateTaskMsg{id: m.listModel.Selected.ID()}
+			})
 		case "toogle":
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
@@ -194,9 +229,16 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, creationCmd)
 
 		if m.creationModel.Done {
-			cmds = append(cmds, func() tea.Msg {
-				return createTaskMsg{Task: m.creationModel.Result}
-			})
+			switch m.creationModel.Method {
+			case "create":
+				cmds = append(cmds, func() tea.Msg {
+					return createTaskMsg{Task: m.creationModel.Task}
+				})
+			case "update":
+				cmds = append(cmds, func() tea.Msg {
+					return updatedTaskMsg{Task: m.creationModel.Task}
+				})
+			}
 		}
 	}
 

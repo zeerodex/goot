@@ -20,6 +20,7 @@ type TaskService interface {
 	ToggleCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
 	DeleteTaskByID(id int) error
+	UpdateTask(task *tasks.Task) (*tasks.Task, error)
 
 	Sync() error
 
@@ -61,6 +62,29 @@ func (s *taskService) Sync() error {
 		return fmt.Errorf("failed to sync apis: %w", err)
 	}
 	return nil
+}
+
+func (s *taskService) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
+	if err := s.ValidateTask(task); err != nil {
+		return nil, fmt.Errorf("unable to validate task: %w", err)
+	}
+
+	task, err := s.repo.UpdateTask(task)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update local task ID %d: %w", task.ID, err)
+	}
+
+	if s.cfg.Google.Sync {
+		go func(task *tasks.Task) {
+			if task.GoogleID != "" {
+				_, err := s.gApi.PatchTask(task)
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		}(task)
+	}
+	return task, nil
 }
 
 func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {

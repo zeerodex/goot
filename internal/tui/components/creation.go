@@ -3,11 +3,12 @@ package components
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/pkg/timeutil"
 )
 
@@ -28,19 +29,17 @@ type CreationModel struct {
 	inputs     []textinput.Model
 
 	Done   bool
-	Result Task
-}
-
-type Task struct {
-	Title       string
-	Description string
-	Due         time.Time
+	Task   *tasks.Task
+	Method string
 }
 
 func InitialCreationModel() CreationModel {
 	m := CreationModel{
 		inputs: make([]textinput.Model, 3),
 	}
+	task := &tasks.Task{}
+	m.Task = task
+	m.Method = "create"
 	var t textinput.Model
 	for i := range m.inputs {
 		t = textinput.New()
@@ -58,6 +57,40 @@ func InitialCreationModel() CreationModel {
 			t.Placeholder = "Due [YYYY-MM-DD (HH:MM)] (Today by default)"
 			t.CharLimit = 156
 			t.Width = 50
+
+		}
+		m.inputs[i] = t
+	}
+
+	return m
+}
+
+func InitialUpdateModel(task *tasks.Task) CreationModel {
+	m := CreationModel{
+		inputs: make([]textinput.Model, 3),
+	}
+	m.Method = "update"
+	m.Task = task
+	var t textinput.Model
+	for i := range m.inputs {
+		t = textinput.New()
+		switch i {
+		case 0:
+			t.Focus()
+			t.Placeholder = "Title"
+			t.CharLimit = 1024
+			t.Width = 50
+			t.SetValue(m.Task.Title)
+		case 1:
+			t.Placeholder = "Description (Not required)"
+			t.CharLimit = 8192
+			t.Width = 50
+			t.SetValue(m.Task.Description)
+		case 2:
+			t.Placeholder = "Due [YYYY-MM-DD (HH:MM)] (Today by default)"
+			t.CharLimit = 156
+			t.Width = 50
+			t.SetValue(m.Task.DueStr())
 
 		}
 		m.inputs[i] = t
@@ -95,11 +128,10 @@ func (m CreationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.Done = true
 
-					m.Result = Task{
-						Title:       m.inputs[0].Value(),
-						Description: m.inputs[1].Value(),
-						Due:         due,
-					}
+					m.Task.Title = m.inputs[0].Value()
+					m.Task.Description = m.inputs[1].Value()
+					m.Task.Due = due
+
 					return m, nil
 				}
 			}
