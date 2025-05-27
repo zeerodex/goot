@@ -10,6 +10,7 @@ import (
 	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/repositories"
 	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/internal/workers"
 )
 
 type TaskService interface {
@@ -25,6 +26,7 @@ type TaskService interface {
 	Sync() error
 
 	GetGApi() apis.API
+	WP() *workers.APIWorkerPool
 }
 
 type taskService struct {
@@ -33,6 +35,8 @@ type taskService struct {
 	gApi apis.API
 
 	cfg *config.Config
+
+	wp *workers.APIWorkerPool
 }
 
 func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskService, error) {
@@ -51,6 +55,10 @@ func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskS
 
 func (s *taskService) GetGApi() apis.API {
 	return s.gApi
+}
+
+func (s *taskService) WP() *workers.APIWorkerPool {
+	return s.wp
 }
 
 func (s *taskService) Sync() error {

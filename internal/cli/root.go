@@ -16,9 +16,21 @@ func newRootCmd(s services.TaskService) *cobra.Command {
 	return &cobra.Command{
 		Use:   "goot",
 		Short: "Sleek cli/tui task manager with APIs integration",
-		Run: func(cmd *cobra.Command, args []string) {
-			_, err := tea.NewProgram(tui.InitialMainModel(s)).Run()
-			cobra.CheckErr(err)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			program := tea.NewProgram(tui.InitialMainModel(s))
+
+			go func() {
+				for res := range s.WP().Result() {
+					if !res.Success && res.Err != nil {
+						program.Send(tui.APIErrMsg{Err: res.Err, Operation: string(res.Operation), TaskID: res.TaskID})
+					}
+				}
+			}()
+
+			if _, err := program.Run(); err != nil {
+				return err
+			}
+			return nil
 		},
 	}
 }

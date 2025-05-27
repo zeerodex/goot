@@ -120,6 +120,12 @@ type errMsg struct {
 	err error
 }
 
+type APIErrMsg struct {
+	Operation string
+	TaskID    int
+	Err       error
+}
+
 func (m MainModel) Init() tea.Cmd {
 	return fetchTasksCmd(m.s)
 }
