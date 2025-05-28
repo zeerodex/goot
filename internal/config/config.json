@@ -6,7 +6,7 @@
   },
   "google": {
     "list-id": "@default",
-    "sync": true
+    "sync": false
   },
   "sync-on-startup": true,
   "max-length": {

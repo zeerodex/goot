@@ -52,7 +52,7 @@ type APIWorkerPool struct {
 	mu         sync.RWMutex
 }
 
-func NewAPIWorkerPool(numWorkers int, queueSize int, gApi apis.API, repo repositories.TaskRepository) *APIWorkerPool {
+func NewAPIWorkerPool(numWorkers int, queueSize int, apis []apis.API, repo repositories.TaskRepository) *APIWorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	wp := &APIWorkerPool{
@@ -66,7 +66,7 @@ func NewAPIWorkerPool(numWorkers int, queueSize int, gApi apis.API, repo reposit
 	}
 
 	for i := range wp.numWorkers {
-		wp.workers[i] = NewWorker(i, wp.jobQueue, wp.resQueue, gApi, repo)
+		wp.workers[i] = NewWorker(i, wp.jobQueue, wp.resQueue, apis, repo)
 	}
 	return wp
 }

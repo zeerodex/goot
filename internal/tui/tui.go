@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/zeerodex/goot/internal/services"
@@ -190,7 +192,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentState = m.previuosState
 
 	case errMsg:
-		m.err = msg.err
+		m.err = fmt.Errorf("Error: %w", msg.err)
+		m.previuosState = m.currentState
+		m.currentState = ErrView
+
+	case APIErrMsg:
+		m.err = fmt.Errorf("API Error: failed to process %s operation on task ID %d: %w", msg.Operation, msg.TaskID, msg.Err)
 		m.previuosState = m.currentState
 		m.currentState = ErrView
 	}
@@ -258,7 +265,7 @@ func (m MainModel) View() string {
 	case CreationView:
 		return m.creationModel.View()
 	case ErrView:
-		return "Error: " + m.err.Error()
+		return m.err.Error()
 	}
 	return ""
 }

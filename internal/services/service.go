@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/zeerodex/goot/internal/apis"
@@ -25,36 +24,34 @@ type TaskService interface {
 
 	Sync() error
 
-	GetGApi() apis.API
 	WP() *workers.APIWorkerPool
 }
 
 type taskService struct {
 	repo repositories.TaskRepository
 
-	gApi apis.API
-
 	cfg *config.Config
 
-	wp *workers.APIWorkerPool
+	gApi apis.API
+	wp   *workers.APIWorkerPool
 }
 
 func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskService, error) {
-	var gApi apis.API
+	var apis []apis.API
 	for api, enabled := range cfg.APIs {
 		if api == "google" && enabled {
 			srv, err := gtasksapi.GetService()
 			if err != nil {
 				return nil, fmt.Errorf("failed to enable Google API: %v", err)
 			}
-			gApi = gtasksapi.NewGTasksApi(srv, cfg.Google.ListId)
+			apis = append(apis, gtasksapi.NewGTasksApi(srv, cfg.Google.ListId))
 		}
 	}
-	return &taskService{repo: repo, gApi: gApi, cfg: cfg}, nil
-}
 
-func (s *taskService) GetGApi() apis.API {
-	return s.gApi
+	wp := workers.NewAPIWorkerPool(3, 5, apis, repo)
+	wp.Start()
+
+	return &taskService{repo: repo, cfg: cfg, wp: wp}, nil
 }
 
 func (s *taskService) WP() *workers.APIWorkerPool {
@@ -82,16 +79,14 @@ func (s *taskService) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
 		return nil, fmt.Errorf("failed to update local task ID %d: %w", task.ID, err)
 	}
 
-	if s.cfg.Google.Sync {
-		go func(task *tasks.Task) {
-			if task.GoogleID != "" {
-				_, err := s.gApi.PatchTask(task)
-				if err != nil {
-					log.Println(err)
-				}
-			}
-		}(task)
+	err = s.wp.Submit(workers.APIJob{
+		Operation: workers.UpdateTaskOp,
+		Task:      task,
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	return task, nil
 }
 
@@ -104,18 +99,12 @@ func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 		return nil, fmt.Errorf("failed to create task in repository: %w", err)
 	}
 
-	if s.cfg.Google.Sync {
-		go func(task *tasks.Task) {
-			gtask, err := s.gApi.CreateTask(task)
-			if err != nil {
-				log.Println(err)
-			}
-
-			err = s.repo.UpdateGoogleID(task.ID, gtask.GoogleID)
-			if err != nil {
-				log.Println(err)
-			}
-		}(task)
+	err = s.wp.Submit(workers.APIJob{
+		Operation: workers.CreateTaskOp,
+		Task:      task,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return task, nil
@@ -134,40 +123,36 @@ func (s *taskService) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Task
 }
 
 func (s *taskService) ToggleCompleted(id int, completed bool) error {
-	if s.cfg.Google.Sync {
-		go func(id int, completed bool) {
-			googleId, err := s.repo.GetTaskGoogleID(id)
-			if err != nil {
-				log.Println(err)
-			}
-			err = s.gApi.ToggleCompleted(googleId, completed)
-			if err != nil {
-				log.Println(err)
-			}
-		}(id, completed)
+	if err := s.repo.ToggleCompleted(id, completed); err != nil {
+		return err
 	}
 
-	return s.repo.ToggleCompleted(id, completed)
+	err := s.wp.Submit(workers.APIJob{
+		Operation: workers.ToggleCompletedOp,
+		TaskID:    id,
+		Completed: completed,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *taskService) DeleteTaskByID(id int) error {
-	if s.cfg.Google.Sync {
-		go func(id int) {
-			googleId, err := s.repo.GetTaskGoogleID(id)
-			if err != nil {
-				log.Println(err)
-			}
-			err = s.gApi.DeleteTaskByID(googleId)
-			if err != nil {
-				log.Println(err)
-			}
-		}(id)
-	}
-
 	err := s.repo.SoftDeleteTaskByID(id)
 	if err != nil {
 		return err
 	}
+
+	err = s.wp.Submit(workers.APIJob{
+		Operation: workers.DeleteTaskOp,
+		TaskID:    id,
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -26,6 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to initialize service: %v", err)
 	}
+	defer service.WP().Stop()
 
 	cli.Execute(service, cfg)
 }

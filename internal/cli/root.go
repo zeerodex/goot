@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -22,6 +23,7 @@ func newRootCmd(s services.TaskService) *cobra.Command {
 			go func() {
 				for res := range s.WP().Result() {
 					if !res.Success && res.Err != nil {
+						fmt.Println("ERROR")
 						program.Send(tui.APIErrMsg{Err: res.Err, Operation: string(res.Operation), TaskID: res.TaskID})
 					}
 				}
