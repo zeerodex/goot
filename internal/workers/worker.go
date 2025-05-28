@@ -26,6 +26,7 @@ func NewWorker(id int, jobChan <-chan APIJob, resChan chan<- APIJobResult, apis 
 		jobQueue: jobChan,
 		resultCh: resChan,
 
+		gApi: apis[0],
 		apis: apis,
 		repo: repo,
 	}
@@ -64,8 +65,8 @@ func (w *Worker) processAPIJob(job APIJob) APIJobResult {
 		err = w.processDeleteTaskOp(job.TaskID)
 	case CreateTaskOp:
 		err = w.processCreateTaskOp(job.Task)
-		// case SyncTasksOp:
-		// 	err = w.processSyncTasksOp()
+	case SyncTasksOp:
+		err = w.processSyncTasksOp()
 	}
 
 	res := APIJobResult{
@@ -137,7 +138,7 @@ func (w *Worker) processToggleCompletedTaskOp(id int, completed bool) error {
 	return nil
 }
 
-// func (w *Worker) processSyncTasksOp() error {
-// 	err := w.SyncGTasks()
-// 	return err
-// }
+func (w *Worker) processSyncTasksOp() error {
+	err := w.SyncGTasks()
+	return err
+}

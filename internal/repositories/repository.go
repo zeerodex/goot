@@ -277,7 +277,7 @@ func (r *taskRepository) UpdateGoogleID(id int, googleID string) error {
 		return fmt.Errorf("failed to get rows affected after updating task ID %d: %w", id, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("task with ID %d not found for update: %w", id, ErrTaskNotFound)
+		return fmt.Errorf("task with ID %d not found for update", id)
 	}
 	return nil
 }
@@ -340,7 +340,7 @@ func (r *taskRepository) DeleteTaskByID(id int) error {
 		return fmt.Errorf("failed to get rows affected after deleting task ID %d: %w", id, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("task with ID %d not found for deletion: %w", id, ErrTaskNotFound)
+		return fmt.Errorf("task with ID %d not found for deletion", id)
 	}
 	return nil
 }

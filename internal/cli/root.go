@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -19,15 +18,6 @@ func newRootCmd(s services.TaskService) *cobra.Command {
 		Short: "Sleek cli/tui task manager with APIs integration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			program := tea.NewProgram(tui.InitialMainModel(s))
-
-			go func() {
-				for res := range s.WP().Result() {
-					if !res.Success && res.Err != nil {
-						fmt.Println("ERROR")
-						program.Send(tui.APIErrMsg{Err: res.Err, Operation: string(res.Operation), TaskID: res.TaskID})
-					}
-				}
-			}()
 
 			if _, err := program.Run(); err != nil {
 				return err

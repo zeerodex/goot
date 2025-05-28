@@ -8,6 +8,7 @@ import (
 	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui/components"
+	"github.com/zeerodex/goot/internal/workers"
 )
 
 type AppState int
@@ -93,6 +94,8 @@ func toggleCompletedCmd(s services.TaskService, id int, completed bool) tea.Cmd 
 
 type syncTasksMsg struct{}
 
+type fetchTasksMsg struct{}
+
 type fetchedTasksMsg struct {
 	Tasks tasks.Tasks
 }
@@ -129,7 +132,7 @@ type APIErrMsg struct {
 }
 
 func (m MainModel) Init() tea.Cmd {
-	return fetchTasksCmd(m.s)
+	return tea.Batch(fetchTasksCmd(m.s), listenForWorkerResults(m.s.WP().Result()))
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -166,6 +169,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toggleCompletedMsg:
 		cmds = append(cmds, toggleCompletedCmd(m.s, msg.id, msg.completed))
 
+	case fetchTasksMsg:
+		cmds = append(cmds, fetchTasksCmd(m.s))
+
 	case fetchedTasksMsg:
 		m.tasks = msg.Tasks
 		cmds = append(cmds, m.listModel.SetTasks(m.tasks))
@@ -181,12 +187,13 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case updatedTaskMsg:
 		cmds = append(cmds, updateTaskCmd(m.s, msg.Task))
+		cmds = append(cmds, listenForWorkerResults(m.s.WP().Result()))
 		m.creationModel = components.InitialCreationModel()
 
 		m.currentState = m.previuosState
 
 	case createTaskMsg:
-		cmds = append(cmds, createTaskCmd(m.s, msg.Task))
+		cmds = append(cmds, createTaskCmd(m.s, msg.Task), listenForWorkerResults(m.s.WP().Result()))
 		m.creationModel = components.InitialCreationModel()
 
 		m.currentState = m.previuosState
@@ -283,4 +290,17 @@ func InitialMainModel(s services.TaskService) MainModel {
 	}
 
 	return m
+}
+
+func listenForWorkerResults(results <-chan workers.APIJobResult) tea.Cmd {
+	return func() tea.Msg {
+		for res := range results {
+			if !res.Success && res.Err != nil {
+				return APIErrMsg{Err: res.Err, Operation: string(res.Operation), TaskID: res.TaskID}
+			} else if res.Success && res.Operation == workers.SyncTasksOp {
+				return fetchTasksMsg{}
+			}
+		}
+		return nil
+	}
 }

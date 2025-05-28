@@ -59,12 +59,11 @@ func (s *taskService) WP() *workers.APIWorkerPool {
 }
 
 func (s *taskService) Sync() error {
-	var err error
-	if s.cfg.Google.Sync {
-		err = s.SyncGTasks()
-	}
+	err := s.wp.Submit(workers.APIJob{
+		Operation: workers.SyncTasksOp,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to sync apis: %w", err)
+		return err
 	}
 	return nil
 }
