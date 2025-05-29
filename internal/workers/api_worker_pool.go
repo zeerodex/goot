@@ -120,6 +120,6 @@ func (wp *APIWorkerPool) Submit(job APIJob) error {
 	}
 }
 
-func (wp *APIWorkerPool) Result() <-chan APIJobResult {
+func (wp *APIWorkerPool) Results() <-chan APIJobResult {
 	return wp.resQueue
 }

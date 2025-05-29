@@ -131,11 +131,13 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Method = "create"
 				return m, nil
 			case key.Matches(msg, m.keys.toogleComplete):
-				m.Method = "toogle"
-				selected := m.list.SelectedItem().(item)
-				statusCmd := m.list.NewStatusMessage(statusMessageStyle("Toggle completed for " + selected.TitleOnly()))
-				m.Selected = selected
-				return m, statusCmd
+				if m.list.SelectedItem() != nil {
+					m.Method = "toogle"
+					selected := m.list.SelectedItem().(item)
+					statusCmd := m.list.NewStatusMessage(statusMessageStyle("Toggle completed for " + selected.TitleOnly()))
+					m.Selected = selected
+					return m, statusCmd
+				}
 			case key.Matches(msg, m.keys.syncTasks):
 				m.Method = "sync"
 				return m, nil

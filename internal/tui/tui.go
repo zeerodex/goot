@@ -132,7 +132,7 @@ type APIErrMsg struct {
 }
 
 func (m MainModel) Init() tea.Cmd {
-	return tea.Batch(fetchTasksCmd(m.s), listenForWorkerResults(m.s.WP().Result()))
+	return tea.Batch(fetchTasksCmd(m.s), m.listenForAPIWorkerResults())
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -161,13 +161,13 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case syncTasksMsg:
-		cmds = append(cmds, syncTasksCmd(m.s))
+		cmds = append(cmds, syncTasksCmd(m.s), m.listenForAPIWorkerResults())
 
 	case deleteTaskMsg:
-		cmds = append(cmds, deleteTaskCmd(m.s, msg.id))
+		cmds = append(cmds, deleteTaskCmd(m.s, msg.id), m.listenForAPIWorkerResults())
 
 	case toggleCompletedMsg:
-		cmds = append(cmds, toggleCompletedCmd(m.s, msg.id, msg.completed))
+		cmds = append(cmds, toggleCompletedCmd(m.s, msg.id, msg.completed), m.listenForAPIWorkerResults())
 
 	case fetchTasksMsg:
 		cmds = append(cmds, fetchTasksCmd(m.s))
@@ -186,25 +186,24 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentState = CreationView
 
 	case updatedTaskMsg:
-		cmds = append(cmds, updateTaskCmd(m.s, msg.Task))
-		cmds = append(cmds, listenForWorkerResults(m.s.WP().Result()))
+		cmds = append(cmds, updateTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 		m.creationModel = components.InitialCreationModel()
 
 		m.currentState = m.previuosState
 
 	case createTaskMsg:
-		cmds = append(cmds, createTaskCmd(m.s, msg.Task), listenForWorkerResults(m.s.WP().Result()))
+		cmds = append(cmds, createTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 		m.creationModel = components.InitialCreationModel()
 
 		m.currentState = m.previuosState
 
 	case errMsg:
-		m.err = fmt.Errorf("Error: %w", msg.err)
+		m.err = msg.err
 		m.previuosState = m.currentState
 		m.currentState = ErrView
 
 	case APIErrMsg:
-		m.err = fmt.Errorf("API Error: failed to process %s operation on task ID %d: %w", msg.Operation, msg.TaskID, msg.Err)
+		m.err = fmt.Errorf("API: failed to process %s operation on task ID %d: %w", msg.Operation, msg.TaskID, msg.Err)
 		m.previuosState = m.currentState
 		m.currentState = ErrView
 	}
@@ -272,7 +271,7 @@ func (m MainModel) View() string {
 	case CreationView:
 		return m.creationModel.View()
 	case ErrView:
-		return m.err.Error()
+		return "ERROR: " + m.err.Error()
 	}
 	return ""
 }
@@ -292,9 +291,9 @@ func InitialMainModel(s services.TaskService) MainModel {
 	return m
 }
 
-func listenForWorkerResults(results <-chan workers.APIJobResult) tea.Cmd {
+func (m *MainModel) listenForAPIWorkerResults() tea.Cmd {
 	return func() tea.Msg {
-		for res := range results {
+		for res := range m.s.WP().Results() {
 			if !res.Success && res.Err != nil {
 				return APIErrMsg{Err: res.Err, Operation: string(res.Operation), TaskID: res.TaskID}
 			} else if res.Success && res.Operation == workers.SyncTasksOp {
