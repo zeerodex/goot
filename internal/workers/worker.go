@@ -15,7 +15,6 @@ type Worker struct {
 	jobQueue <-chan APIJob
 	resultCh chan<- APIJobResult
 
-	gApi apis.API
 	apis []apis.API
 	repo repositories.TaskRepository
 }
@@ -26,7 +25,6 @@ func NewWorker(id int, jobChan <-chan APIJob, resChan chan<- APIJobResult, apis 
 		jobQueue: jobChan,
 		resultCh: resChan,
 
-		gApi: apis[0],
 		apis: apis,
 		repo: repo,
 	}
@@ -141,6 +139,6 @@ func (w *Worker) processToggleCompletedTaskOp(id int, completed bool) error {
 }
 
 func (w *Worker) processSyncTasksOp() error {
-	err := w.SyncGTasks()
+	err := w.SyncAPITasks()
 	return err
 }
