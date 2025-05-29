@@ -81,6 +81,7 @@ func (s *taskService) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
 	err = s.wp.Submit(workers.APIJob{
 		Operation: workers.UpdateTaskOp,
 		Task:      task,
+		TaskID:    task.ID,
 	})
 	if err != nil {
 		return nil, err
@@ -101,6 +102,7 @@ func (s *taskService) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	err = s.wp.Submit(workers.APIJob{
 		Operation: workers.CreateTaskOp,
 		Task:      task,
+		TaskID:    task.ID,
 	})
 	if err != nil {
 		return nil, err

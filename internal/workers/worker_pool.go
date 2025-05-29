@@ -3,6 +3,7 @@ package workers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -22,22 +23,32 @@ const (
 )
 
 type APIJob struct {
-	ID           int
-	Operation    APIOperation
-	Task         *tasks.Task
-	TaskID       int
-	TaskGoogleID string
-	Retry        int
-	Completed    bool
+	ID        int
+	Operation APIOperation
+	Task      *tasks.Task
+	TaskID    int
+	Completed bool
+	Retry     int
 }
 
 type APIJobResult struct {
-	JobID        int
-	Operation    APIOperation
-	TaskID       int
-	TaskGoogleID string
-	Success      bool
-	Err          error
+	JobID     int
+	Operation APIOperation
+	TaskID    int
+	Success   bool
+	Err       error
+}
+
+func (res *APIJobResult) ParseErr() error {
+	if res.Err != nil {
+		errStr := fmt.Sprintf("API: failed to process '%s' operation", res.Operation)
+		if res.TaskID != 0 {
+			errStr += fmt.Sprintf("on task ID %d", res.TaskID)
+		}
+
+		return fmt.Errorf(errStr+": %w", res.Err)
+	}
+	return nil
 }
 
 type APIWorkerPool struct {

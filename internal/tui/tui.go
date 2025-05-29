@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"fmt"
-
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/zeerodex/goot/internal/services"
@@ -125,12 +123,6 @@ type errMsg struct {
 	err error
 }
 
-type APIErrMsg struct {
-	Operation string
-	TaskID    int
-	Err       error
-}
-
 func (m MainModel) Init() tea.Cmd {
 	return tea.Batch(fetchTasksCmd(m.s), m.listenForAPIWorkerResults())
 }
@@ -202,10 +194,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.previuosState = m.currentState
 		m.currentState = ErrView
 
-	case APIErrMsg:
-		m.err = fmt.Errorf("API: failed to process %s operation on task ID %d: %w", msg.Operation, msg.TaskID, msg.Err)
-		m.previuosState = m.currentState
-		m.currentState = ErrView
 	}
 
 	switch m.currentState {
@@ -295,7 +283,7 @@ func (m *MainModel) listenForAPIWorkerResults() tea.Cmd {
 	return func() tea.Msg {
 		for res := range m.s.WP().Results() {
 			if !res.Success && res.Err != nil {
-				return APIErrMsg{Err: res.Err, Operation: string(res.Operation), TaskID: res.TaskID}
+				return errMsg{err: res.ParseErr()}
 			} else if res.Success && res.Operation == workers.SyncTasksOp {
 				return fetchTasksMsg{}
 			}

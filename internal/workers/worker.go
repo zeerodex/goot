@@ -54,6 +54,7 @@ func (w *Worker) Start(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
+// TODO: implement retry logic
 func (w *Worker) processAPIJob(job APIJob) APIJobResult {
 	var err error
 	switch job.Operation {
@@ -72,6 +73,7 @@ func (w *Worker) processAPIJob(job APIJob) APIJobResult {
 	res := APIJobResult{
 		JobID:     job.ID,
 		Operation: job.Operation,
+		TaskID:    job.TaskID,
 		Success:   err == nil,
 		Err:       err,
 	}
