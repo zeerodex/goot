@@ -63,6 +63,7 @@ func processMissingLocalTasks(atasks, ltasks tasks.Tasks, api apis.API, repo rep
 	semaphore := make(chan struct{}, semaphoreSize)
 
 	for _, atask := range atasks {
+		fmt.Println("task")
 		task, found := ltasks.FindTaskByGoogleID(atask.GoogleID)
 		if !found {
 			if atask.Deleted {
