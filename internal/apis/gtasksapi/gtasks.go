@@ -66,7 +66,7 @@ func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
 func (api *GTasksApi) GetAllTasksWithDeleted() (tasks.Tasks, error) {
 	gtasks, err := api.srv.Tasks.List(api.ListId).ShowDeleted(true).ShowCompleted(true).ShowHidden(true).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve all deleted tasks from list '%s': %w", api.ListId, err)
+		return nil, fmt.Errorf("failed to retrieve all tasks with deleted from list '%s': %w", api.ListId, err)
 	}
 
 	tasksList := make(tasks.Tasks, len(gtasks.Items))
