@@ -262,13 +262,13 @@ func (r *taskRepository) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
 }
 
 func (r *taskRepository) UpdateGoogleID(id int, googleID string) error {
-	stmt, err := r.db.Prepare("UPDATE tasks SET google_id = ?, last_modified = ? WHERE id = ?")
+	stmt, err := r.db.Prepare("UPDATE tasks SET google_id = ? WHERE id = ?")
 	if err != nil {
 		return fmt.Errorf("failed to prepare update task statement: %w", err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(googleID, time.Now().UTC().Format(time.RFC3339), id)
+	res, err := stmt.Exec(googleID, id)
 	if err != nil {
 		return fmt.Errorf("failed to execute update task statement for ID %d: %w", id, err)
 	}

@@ -49,7 +49,11 @@ func (t Task) GTask() *gtasks.Task {
 	} else if !t.Completed {
 		g.Status = "needsAction"
 	}
-	g.Due = t.Due.Format(time.RFC3339)
+	if !t.Due.IsZero() {
+		g.Due = t.Due.Format(time.RFC3339)
+	} else {
+		g.Due = ""
+	}
 	return &g
 }
 
@@ -61,10 +65,13 @@ func (t Task) Task() string {
 }
 
 func (t *Task) DueStr() string {
-	if t.Due.Hour() == 0 && t.Due.Minute() == 0 {
-		return t.Due.Format("2006-01-02")
+	if !t.Due.IsZero() {
+		if t.Due.Hour() == 0 && t.Due.Minute() == 0 {
+			return t.Due.Format("2006-01-02")
+		}
+		return t.Due.Format("2006-01-02 15:04")
 	}
-	return t.Due.Format("2006-01-02 15:04")
+	return ""
 }
 
 func (t *Task) SetDueAndLastModified(dueStr string, lastModifiedStr string) error {

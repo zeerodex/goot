@@ -73,20 +73,23 @@ func ParseAndValidateTimestamp(datetimeStr string) (time.Time, error) {
 	datetimeStr = strings.TrimSpace(datetimeStr)
 	datetimeStr = strings.ToLower(datetimeStr)
 	dateStr, timeStr := SeparateDateAndTime(datetimeStr)
-	// HACK:
-	if dateStr == "" {
-		dateStr = time.Now().Format(dateLayout)
-	}
+	var timestampDate time.Time
+	var err error
 
-	timestampDate, err := ParseAndValidateDate(dateStr)
-	if err != nil {
-		return time.Time{}, err
+	if dateStr != "" {
+		timestampDate, err = ParseAndValidateDate(dateStr)
+		if err != nil {
+			return time.Time{}, err
+		}
 	}
 
 	if timeStr != "" {
 		timestampTime, err := time.ParseInLocation(timeLayout, timeStr, loc)
 		if err != nil {
 			return time.Time{}, errors.New("invaild time format")
+		}
+		if timestampDate.IsZero() {
+			timestampDate = time.Now()
 		}
 		return time.Date(timestampDate.Year(), timestampDate.Month(), timestampDate.Day(), timestampTime.Hour(), timestampTime.Minute(), 0, 0, loc), nil
 	}

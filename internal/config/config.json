@@ -12,5 +12,5 @@
     "description": 8196,
     "title": 1024
   },
-  "sync-on-startup": true
+  "sync-on-startup": false
 }
