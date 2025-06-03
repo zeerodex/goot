@@ -2,55 +2,29 @@ package workers
 
 import (
 	"fmt"
-	"sync"
+	"time"
 
 	"github.com/zeerodex/goot/internal/apis"
 	"github.com/zeerodex/goot/internal/repositories"
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
-const semaphoreSize = 3
-
 func processMissingAPITasks(atasks, ltasks tasks.Tasks, api apis.API, repo repositories.TaskRepository) error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(ltasks))
-	semaphore := make(chan struct{}, semaphoreSize)
-
 	for _, task := range ltasks {
 		if _, found := atasks.FindTaskByGoogleID(task.GoogleID); found || task.Deleted {
 			continue
 		}
 
-		wg.Add(1)
-		go func(t *tasks.Task) {
-			defer wg.Done()
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-
-			_, err := api.CreateTask(t)
-			if err != nil {
-				errChan <- fmt.Errorf("failed to create local task for Google ID '%s': %w", t.GoogleID, err)
-				return
-			}
-
-			ltasks = append(ltasks, *t)
-
-			err = repo.UpdateGoogleID(t.ID, t.GoogleID)
-			if err != nil {
-				errChan <- fmt.Errorf("failed to update Google ID '%s' of task ID %d: %w", t.GoogleID, t.ID, err)
-				return
-			}
-		}(&task)
-
-	}
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	for err := range errChan {
+		_, err := api.CreateTask(&task)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create local task for Google ID '%s': %w", task.GoogleID, err)
+		}
+
+		ltasks = append(ltasks, task)
+
+		err = repo.UpdateGoogleID(task.ID, task.GoogleID)
+		if err != nil {
+			return fmt.Errorf("failed to update Google ID '%s' of task ID %d: %w", task.GoogleID, task.ID, err)
 		}
 	}
 
@@ -58,56 +32,34 @@ func processMissingAPITasks(atasks, ltasks tasks.Tasks, api apis.API, repo repos
 }
 
 func processMissingLocalTasks(atasks, ltasks tasks.Tasks, api apis.API, repo repositories.TaskRepository) error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(atasks))
-	semaphore := make(chan struct{}, semaphoreSize)
-
 	for _, atask := range atasks {
-		fmt.Println("task")
 		task, found := ltasks.FindTaskByGoogleID(atask.GoogleID)
+		var err error
 		if !found {
 			if atask.Deleted {
 				continue
 			}
-			wg.Add(1)
-			go func(at *tasks.Task) {
-				defer wg.Done()
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
 
-				var err error
-				task, err = repo.CreateTask(at)
-				if err != nil {
-					errChan <- fmt.Errorf("failed to create local task for Google ID '%s': %w", atask.GoogleID, err)
-					return
-				}
-			}(&atask)
+			_, err = repo.CreateTask(&atask)
+			if err != nil {
+				return fmt.Errorf("failed to create local task for Google ID '%s': %w", atask.GoogleID, err)
+			}
 			continue
 		}
 
 		if task.Deleted || atask.Deleted {
-			wg.Add(1)
-			go func(tId int, atId string, tDel, atDel bool) {
-				defer wg.Done()
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
-
-				if atDel {
-					err := repo.DeleteTaskByID(tId)
-					if err != nil {
-						errChan <- fmt.Errorf("failed to delete marked as deleted local task ID %d: %w", tId, err)
-						return
-					}
+			if atask.Deleted {
+				err = repo.DeleteTaskByID(task.ID)
+				if err != nil {
+					return fmt.Errorf("failed to delete marked as deleted local task ID %d: %w", task.ID, err)
 				}
-				if tDel {
-					err := api.DeleteTaskByID(atId)
-					if err != nil {
-						errChan <- fmt.Errorf("failed to delete marked as deleted google task Google ID '%s': %w", atId, err)
-						return
-					}
+			}
+			if task.Deleted {
+				err = api.DeleteTaskByID(atask.GoogleID)
+				if err != nil {
+					return fmt.Errorf("failed to delete marked as deleted google task Google ID '%s': %w", atask.GoogleID, err)
 				}
-			}(task.ID, atask.GoogleID, task.Deleted, atask.Deleted)
-
+			}
 		}
 
 		timeDiff := atask.LastModified.Compare(task.LastModified)
@@ -115,43 +67,19 @@ func processMissingLocalTasks(atasks, ltasks tasks.Tasks, api apis.API, repo rep
 			atask.ID = task.ID
 			switch timeDiff {
 			case -1:
-				wg.Add(1)
-				go func(t *tasks.Task) {
-					defer wg.Done()
-					semaphore <- struct{}{}
-					defer func() { <-semaphore }()
-
-					_, err := api.PatchTask(t)
-					if err != nil {
-						errChan <- fmt.Errorf("failed to patch google task (Google ID '%s') with newer local task (ID %d): %w", task.GoogleID, task.ID, err)
-						return
-					}
-				}(task)
+				_, err = api.PatchTask(task)
+				if err != nil {
+					return fmt.Errorf("failed to patch google task (Google ID '%s') with newer local task (ID %d): %w", task.GoogleID, task.ID, err)
+				}
 			case 1:
-				wg.Add(1)
-				go func(at *tasks.Task) {
-					defer wg.Done()
-					semaphore <- struct{}{}
-					defer func() { <-semaphore }()
-
-					_, err := repo.UpdateTask(at)
-					if err != nil {
-						errChan <- fmt.Errorf("failed to update local task (ID %d) with newer Google task (Google ID '%s'): %w", task.ID, atask.GoogleID, err)
-						return
-					}
-				}(&atask)
+				if atask.Due.Truncate(24 * time.Hour).Equal(task.Due.Truncate(24 * time.Hour)) {
+					atask.Due = task.Due
+				}
+				_, err = repo.UpdateTask(&atask)
+				if err != nil {
+					return fmt.Errorf("failed to update local task (ID %d) with newer Google task (Google ID '%s'): %w", task.ID, atask.GoogleID, err)
+				}
 			}
-		}
-	}
-
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	for err := range errChan {
-		if err != nil {
-			return err
 		}
 	}
 
@@ -160,48 +88,21 @@ func processMissingLocalTasks(atasks, ltasks tasks.Tasks, api apis.API, repo rep
 
 func (w *Worker) SyncAPITasks() error {
 	for _, api := range w.apis {
-		var wg sync.WaitGroup
-		errChan := make(chan error, 2)
-
 		var tasks, deletedTasks, atasks tasks.Tasks
-
 		var err error
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
 
-			tasks, err = w.repo.GetAllTasks()
-			if err != nil {
-				errChan <- fmt.Errorf("failed to get all local tasks: %w", err)
-				return
-			}
-			deletedTasks, err = w.repo.GetAllDeletedTasks()
-			if err != nil {
-				errChan <- fmt.Errorf("failed to get all deleted local tasks: %w", err)
-				return
-			}
-		}()
+		tasks, err = w.repo.GetAllTasks()
+		if err != nil {
+			return fmt.Errorf("failed to get all local tasks: %w", err)
+		}
+		deletedTasks, err = w.repo.GetAllDeletedTasks()
+		if err != nil {
+			return fmt.Errorf("failed to get all deleted local tasks: %w", err)
+		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			atasks, err = api.GetAllTasksWithDeleted()
-			if err != nil {
-				errChan <- fmt.Errorf("failed to get all google tasks: %w", err)
-				return
-			}
-		}()
-
-		go func() {
-			wg.Wait()
-			close(errChan)
-		}()
-
-		for err := range errChan {
-			if err != nil {
-				return err
-			}
+		atasks, err = api.GetAllTasksWithDeleted()
+		if err != nil {
+			return fmt.Errorf("failed to get all google tasks: %w", err)
 		}
 
 		tasks = append(tasks, deletedTasks...)
