@@ -39,6 +39,8 @@ func Execute(s services.TaskService, cfg *config.Config) {
 		NewDaemonCmd(s),
 
 		NewSyncCmd(s, cfg.APIs),
+
+		NewGetAllTodoistTasks(),
 	}
 	rootCmd.AddCommand(commands...)
 
