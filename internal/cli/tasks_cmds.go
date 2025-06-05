@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zeerodex/goot/internal/apis/todoist"
 	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui"
@@ -159,6 +160,21 @@ func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 				return fmt.Errorf("failed to mark task completed: %w", err)
 			}
 			return nil
+		},
+	}
+}
+
+func NewGetAllTodoistTasks() *cobra.Command {
+	return &cobra.Command{
+		Use: "todoist_get",
+		Run: func(cmd *cobra.Command, args []string) {
+			client := todoist.NewClient("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
+			tasks, err := client.GetTasks()
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+			fmt.Println(tasks)
 		},
 	}
 }
