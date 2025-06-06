@@ -1,6 +1,11 @@
 package apis
 
-import "github.com/zeerodex/goot/internal/tasks"
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/zeerodex/goot/internal/tasks"
+)
 
 type API interface {
 	CreateTask(*tasks.Task) (*tasks.Task, error)
@@ -11,4 +16,26 @@ type API interface {
 	PatchTask(task *tasks.Task) (*tasks.Task, error)
 	ToggleCompleted(id string, completed bool) error
 	DeleteTaskByID(id string) error
+}
+
+func HandleResponseStatusCode(statusCode int) error {
+	if statusCode != http.StatusOK {
+		baseErr := fmt.Errorf("API request failed with status: %d", statusCode)
+
+		switch statusCode {
+		case http.StatusBadRequest:
+			return fmt.Errorf("%w: client error, please check your request parameters", baseErr)
+		case http.StatusUnauthorized:
+			return fmt.Errorf("%w: authentication required or invalid credentials", baseErr)
+		case http.StatusForbidden:
+			return fmt.Errorf("%w: access denied, insufficient permissions", baseErr)
+		case http.StatusNotFound:
+			return fmt.Errorf("%w: resource not found", baseErr)
+		case http.StatusInternalServerError:
+			return fmt.Errorf("%w: internal server error, please try again later", baseErr)
+		default:
+			return baseErr
+		}
+	}
+	return nil
 }
