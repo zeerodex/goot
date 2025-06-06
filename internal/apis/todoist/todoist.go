@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeerodex/goot/internal/apis"
 	"github.com/zeerodex/goot/internal/tasks"
+	"github.com/zeerodex/goot/pkg/timeutil"
 )
 
 const (
@@ -21,30 +22,6 @@ type TodoistClient struct {
 	token  string
 }
 
-func (TodoistClient) CreateTask(_ *tasks.Task) (_ *tasks.Task, _ error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (TodoistClient) GetAllLists() (_ tasks.TasksLists, _ error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (TodoistClient) GetAllTasksWithDeleted() (_ tasks.Tasks, _ error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (TodoistClient) PatchTask(task *tasks.Task) (_ *tasks.Task, _ error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (TodoistClient) ToggleCompleted(id string, completed bool) (_ error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (TodoistClient) DeleteTaskByID(id string) (_ error) {
-	panic("not implemented") // TODO: Implement
-}
-
 func NewTodoistClient(token string) apis.API {
 	return &TodoistClient{
 		client: http.DefaultClient,
@@ -52,7 +29,7 @@ func NewTodoistClient(token string) apis.API {
 	}
 }
 
-type task struct {
+type Task struct {
 	ID          string `json:"id"`
 	Content     string `json:"content"`
 	Description string `json:"description,omitempty"`
@@ -64,11 +41,12 @@ type task struct {
 	UpdatedAt   string `json:"updated_at"`
 }
 
-func (tt *task) Task() *tasks.Task {
+func (tt *Task) Task() *tasks.Task {
 	var t tasks.Task
+	t.TodoistID = tt.ID
 	t.Title = tt.Content
 	t.Description = tt.Description
-	t.Due, _ = time.Parse(time.RFC3339, tt.Due.Date)
+	t.Due, _ = timeutil.Parse(tt.Due.Date)
 	if tt.CompletedAt != "" {
 		t.Completed = true
 	} else {
@@ -79,8 +57,24 @@ func (tt *task) Task() *tasks.Task {
 	return &t
 }
 
+func TodoistTask(t *tasks.Task) *Task {
+	var tt Task
+	t.TodoistID = tt.ID
+	tt.Content = t.Title
+	tt.Description = t.Description
+	tt.Due.Date = t.Due.Format(time.RFC3339)
+	if t.Completed {
+		tt.CompletedAt = time.Now().Format(time.RFC3339)
+	} else {
+		tt.CompletedAt = ""
+	}
+	tt.IsDeleted = t.Deleted
+	tt.UpdatedAt = t.LastModified.Format(time.RFC3339)
+	return &tt
+}
+
 type response struct {
-	Tasks       []task `json:"results,omitempty"`
+	Tasks       []Task `json:"results,omitempty"`
 	Next_cursor string `json:"next_cursor,omitempty"`
 }
 
@@ -102,6 +96,43 @@ func (c *TodoistClient) makeRequest(method string, endpoint string, data any) (*
 	req.Header.Set("Content-Type", "application/json")
 
 	return c.client.Do(req)
+}
+
+type taskCreationModel struct {
+	Content     string `json:"content"`
+	Description string `json:"description,omitempty"`
+	DueDate     string `json:"due_date,omitempty"`
+	DueDateTime string `json:"due_datetime,omitempty"`
+}
+
+func (c TodoistClient) CreateTask(task *tasks.Task) (*tasks.Task, error) {
+	ct := &taskCreationModel{
+		Content:     task.Title,
+		Description: task.Description,
+	}
+	if timeutil.IsOnlyDate(task.Due) {
+		ct.DueDate = task.Due.Format("2006-01-02")
+	} else {
+		ct.DueDateTime = task.Due.Format(time.RFC3339)
+	}
+
+	resp, err := c.makeRequest("POST", "/tasks", ct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := apis.HandleResponseStatusCode(resp.StatusCode); err != nil {
+		return nil, err
+	}
+
+	tt := &Task{}
+	err = json.NewDecoder(resp.Body).Decode(tt)
+	if err != nil {
+		return nil, fmt.Errorf("error encoding json: %w", err)
+	}
+
+	return tt.Task(), nil
 }
 
 func (c *TodoistClient) GetAllTasks() (tasks.Tasks, error) {
@@ -141,11 +172,37 @@ func (c *TodoistClient) GetTaskByID(id string) (*tasks.Task, error) {
 		return nil, err
 	}
 
-	var task task
+	var task Task
 	err = json.NewDecoder(resp.Body).Decode(&task)
 	if err != nil {
 		return nil, fmt.Errorf("error encoding json: %w", err)
 	}
 
 	return task.Task(), nil
+}
+
+func (TodoistClient) GetAllTasksWithDeleted() (_ tasks.Tasks, _ error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (TodoistClient) PatchTask(task *tasks.Task) (_ *tasks.Task, _ error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (TodoistClient) ToggleCompleted(id string, completed bool) (_ error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (c *TodoistClient) DeleteTaskByID(id string) error {
+	resp, err := c.makeRequest("DELETE", fmt.Sprintf("/tasks/%s", id), nil)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := apis.HandleResponseStatusCode(resp.StatusCode); err != nil {
+		return err
+	}
+
+	return nil
 }

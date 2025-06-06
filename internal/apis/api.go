@@ -9,7 +9,7 @@ import (
 
 type API interface {
 	CreateTask(*tasks.Task) (*tasks.Task, error)
-	GetAllLists() (tasks.TasksLists, error)
+	// GetAllLists() (tasks.TasksLists, error)
 	GetTaskByID(id string) (*tasks.Task, error)
 	GetAllTasks() (tasks.Tasks, error)
 	GetAllTasksWithDeleted() (tasks.Tasks, error)
@@ -19,7 +19,7 @@ type API interface {
 }
 
 func HandleResponseStatusCode(statusCode int) error {
-	if statusCode != http.StatusOK {
+	if statusCode != http.StatusOK && statusCode != http.StatusNoContent {
 		baseErr := fmt.Errorf("API request failed with status: %d", statusCode)
 
 		switch statusCode {
