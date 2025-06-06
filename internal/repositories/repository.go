@@ -31,7 +31,7 @@ type TaskRepository interface {
 	SoftDeleteTaskByID(id int) error
 	DeleteTaskByTitle(title string) error
 
-	ToggleCompleted(id int, completed bool) error
+	SetTaskCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
 }
 
@@ -282,23 +282,23 @@ func (r *taskRepository) UpdateGoogleID(id int, googleID string) error {
 	return nil
 }
 
-func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
+func (r *taskRepository) SetTaskCompleted(id int, completed bool) error {
 	stmt, err := r.db.Prepare("UPDATE tasks SET completed = ?, last_modified = ? WHERE id = ?")
 	if err != nil {
-		return fmt.Errorf("failed to prepare toggle completed statement: %w", err)
+		return fmt.Errorf("failed to prepare set task completed statement: %w", err)
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(completed, time.Now().Format(time.RFC3339), id)
 	if err != nil {
-		return fmt.Errorf("failed to execute toggle completed for task ID %d: %w", id, err)
+		return fmt.Errorf("failed to execute set completed for task ID %d: %w", id, err)
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected for toggle completed on task ID %d: %w", id, err)
+		return fmt.Errorf("failed to get rows affected for set completed on task ID %d: %w", id, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("task with ID %d not found for toggle completed: %w", id, ErrTaskNotFound)
+		return fmt.Errorf("task with ID %d not found for set completed: %w", id, ErrTaskNotFound)
 	}
 	return nil
 }

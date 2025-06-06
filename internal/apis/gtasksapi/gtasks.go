@@ -93,7 +93,7 @@ func (api *GTasksApi) PatchTask(task *tasks.Task) (*tasks.Task, error) {
 	return ConvertGTask(g), nil
 }
 
-func (api *GTasksApi) ToggleCompleted(id string, completed bool) error {
+func (api *GTasksApi) SetTaskCompleted(id string, completed bool) error {
 	gtask := &gtasks.Task{}
 	if completed {
 		gtask.Status = "completed"

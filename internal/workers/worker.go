@@ -56,8 +56,8 @@ func (w *Worker) Start(ctx context.Context, wg *sync.WaitGroup) {
 func (w *Worker) processAPIJob(job APIJob) APIJobResult {
 	var err error
 	switch job.Operation {
-	case ToggleCompletedOp:
-		err = w.processToggleCompletedTaskOp(job.TaskID, job.Completed)
+	case SetTaskCompletedOp:
+		err = w.processSetTaskCompletedOp(job.TaskID, job.Completed)
 	case UpdateTaskOp:
 		err = w.processUpdateTaskOp(job.Task)
 	case DeleteTaskOp:
@@ -123,13 +123,13 @@ func (w *Worker) processUpdateTaskOp(task *tasks.Task) error {
 	return nil
 }
 
-func (w *Worker) processToggleCompletedTaskOp(id int, completed bool) error {
+func (w *Worker) processSetTaskCompletedOp(id int, completed bool) error {
 	for _, api := range w.apis {
 		googleId, err := w.repo.GetTaskGoogleID(id)
 		if err != nil {
 			return err
 		}
-		err = api.ToggleCompleted(googleId, completed)
+		err = api.SetTaskCompleted(googleId, completed)
 		if err != nil {
 			return err
 		}
