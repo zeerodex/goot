@@ -168,8 +168,16 @@ func NewGetAllTodoistTasks() *cobra.Command {
 	return &cobra.Command{
 		Use: "todoist_get",
 		Run: func(cmd *cobra.Command, args []string) {
-			client := todoist.NewClient("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
-			tasks, err := client.GetTaskByID("6c74vJjcM4v3rxM4")
+			client := todoist.NewTodoistClient("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
+
+			// dateStr := time.Now().Format("2006-01-02")
+			// date, _ := time.Parse("2006-01-02", dateStr)
+			// tasks, err := client.CreateTask(&tasks.Task{
+			// 	Title:       "title1",
+			// 	Description: "Desc",
+			// 	Due:         date,
+			// })
+			tasks, err := client.GetAllTasks()
 			if err != nil {
 				fmt.Println(err.Error())
 				return
