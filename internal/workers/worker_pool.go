@@ -43,7 +43,7 @@ func (res *APIJobResult) ParseErr() error {
 	if res.Err != nil {
 		errStr := fmt.Sprintf("API: failed to process '%s' operation", res.Operation)
 		if res.TaskID != 0 {
-			errStr += fmt.Sprintf("on task ID %d", res.TaskID)
+			errStr += fmt.Sprintf(" on task ID %d", res.TaskID)
 		}
 
 		return fmt.Errorf(errStr+": %w", res.Err)
@@ -63,7 +63,7 @@ type APIWorkerPool struct {
 	mu         sync.RWMutex
 }
 
-func NewAPIWorkerPool(numWorkers int, queueSize int, apis []apis.API, repo repositories.TaskRepository) *APIWorkerPool {
+func NewAPIWorkerPool(numWorkers int, queueSize int, apis map[string]apis.API, repo repositories.TaskRepository) *APIWorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	wp := &APIWorkerPool{
