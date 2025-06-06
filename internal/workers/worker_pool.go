@@ -15,11 +15,11 @@ import (
 type APIOperation string
 
 const (
-	CreateTaskOp      APIOperation = "create_task"
-	UpdateTaskOp      APIOperation = "update_task"
-	DeleteTaskOp      APIOperation = "delete_task"
-	ToggleCompletedOp APIOperation = "toggle_completed_task"
-	SyncTasksOp       APIOperation = "sync_tasks"
+	CreateTaskOp       APIOperation = "create_task"
+	UpdateTaskOp       APIOperation = "update_task"
+	DeleteTaskOp       APIOperation = "delete_task"
+	SetTaskCompletedOp APIOperation = "set_task_completed"
+	SyncTasksOp        APIOperation = "sync_tasks"
 )
 
 type APIJob struct {

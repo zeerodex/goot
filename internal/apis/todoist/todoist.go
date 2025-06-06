@@ -98,15 +98,15 @@ func (c *TodoistClient) makeRequest(method string, endpoint string, data any) (*
 	return c.client.Do(req)
 }
 
-type taskCreationModel struct {
+type taskCU struct {
 	Content     string `json:"content"`
 	Description string `json:"description,omitempty"`
 	DueDate     string `json:"due_date,omitempty"`
 	DueDateTime string `json:"due_datetime,omitempty"`
 }
 
-func (c TodoistClient) CreateTask(task *tasks.Task) (*tasks.Task, error) {
-	ct := &taskCreationModel{
+func newTaskCU(task *tasks.Task) *taskCU {
+	ct := &taskCU{
 		Content:     task.Title,
 		Description: task.Description,
 	}
@@ -115,8 +115,11 @@ func (c TodoistClient) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	} else {
 		ct.DueDateTime = task.Due.Format(time.RFC3339)
 	}
+	return ct
+}
 
-	resp, err := c.makeRequest("POST", "/tasks", ct)
+func (c TodoistClient) CreateTask(task *tasks.Task) (*tasks.Task, error) {
+	resp, err := c.makeRequest("POST", "/tasks", newTaskCU(task))
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -185,12 +188,41 @@ func (TodoistClient) GetAllTasksWithDeleted() (_ tasks.Tasks, _ error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (TodoistClient) PatchTask(task *tasks.Task) (_ *tasks.Task, _ error) {
-	panic("not implemented") // TODO: Implement
+func (c *TodoistClient) PatchTask(task *tasks.Task) (*tasks.Task, error) {
+	resp, err := c.makeRequest("POST", fmt.Sprintf("/tasks/%s", task.TodoistID), newTaskCU(task))
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := apis.HandleResponseStatusCode(resp.StatusCode); err != nil {
+		return nil, err
+	}
+
+	var t Task
+	if err := json.NewDecoder(resp.Body).Decode(&t); err != nil {
+		return nil, fmt.Errorf("errror encoding json: %w", err)
+	}
+
+	return t.Task(), nil
 }
 
-func (TodoistClient) ToggleCompleted(id string, completed bool) (_ error) {
-	panic("not implemented") // TODO: Implement
+func (c *TodoistClient) SetTaskCompleted(id string, completed bool) error {
+	method := "close"
+	if completed {
+		method = "reopen"
+	}
+	resp, err := c.makeRequest("POST", fmt.Sprintf("/tasks/%s/%s", id, method), nil)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	resp.Body.Close()
+
+	if err := apis.HandleResponseStatusCode(resp.StatusCode); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *TodoistClient) DeleteTaskByID(id string) error {

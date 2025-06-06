@@ -14,7 +14,7 @@ type API interface {
 	GetAllTasks() (tasks.Tasks, error)
 	GetAllTasksWithDeleted() (tasks.Tasks, error)
 	PatchTask(task *tasks.Task) (*tasks.Task, error)
-	ToggleCompleted(id string, completed bool) error
+	SetTaskCompleted(id string, completed bool) error
 	DeleteTaskByID(id string) error
 }
 

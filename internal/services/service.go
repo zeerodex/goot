@@ -17,7 +17,7 @@ type TaskService interface {
 	GetTaskByID(id int) (*tasks.Task, error)
 	GetAllTasks() (tasks.Tasks, error)
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
-	ToggleCompleted(id int, completed bool) error
+	SetTaskCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
 	DeleteTaskByID(id int) error
 	UpdateTask(task *tasks.Task) (*tasks.Task, error)
@@ -123,13 +123,13 @@ func (s *taskService) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Task
 	return s.repo.GetAllPendingTasks(minTime, maxTime)
 }
 
-func (s *taskService) ToggleCompleted(id int, completed bool) error {
-	if err := s.repo.ToggleCompleted(id, completed); err != nil {
+func (s *taskService) SetTaskCompleted(id int, completed bool) error {
+	if err := s.repo.SetTaskCompleted(id, completed); err != nil {
 		return err
 	}
 
 	err := s.wp.Submit(workers.APIJob{
-		Operation: workers.ToggleCompletedOp,
+		Operation: workers.SetTaskCompletedOp,
 		TaskID:    id,
 		Completed: completed,
 	})

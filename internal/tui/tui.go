@@ -80,9 +80,9 @@ func deleteTaskCmd(s services.TaskService, id int) tea.Cmd {
 	}
 }
 
-func toggleCompletedCmd(s services.TaskService, id int, completed bool) tea.Cmd {
+func setTaskCompletedCmd(s services.TaskService, id int, completed bool) tea.Cmd {
 	return func() tea.Msg {
-		err := s.ToggleCompleted(id, completed)
+		err := s.SetTaskCompleted(id, completed)
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -102,7 +102,7 @@ type deleteTaskMsg struct {
 	id int
 }
 
-type toggleCompletedMsg struct {
+type setTaskCompletedMsg struct {
 	id        int
 	completed bool
 }
@@ -158,8 +158,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case deleteTaskMsg:
 		cmds = append(cmds, deleteTaskCmd(m.s, msg.id), m.listenForAPIWorkerResults())
 
-	case toggleCompletedMsg:
-		cmds = append(cmds, toggleCompletedCmd(m.s, msg.id, msg.completed), m.listenForAPIWorkerResults())
+	case setTaskCompletedMsg:
+		cmds = append(cmds, setTaskCompletedCmd(m.s, msg.id, msg.completed), m.listenForAPIWorkerResults())
 
 	case fetchTasksMsg:
 		cmds = append(cmds, fetchTasksCmd(m.s))
@@ -221,7 +221,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "toogle":
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
-				return toggleCompletedMsg{id: m.listModel.Selected.ID(), completed: !m.listModel.Selected.Completed()}
+				return setTaskCompletedMsg{id: m.listModel.Selected.ID(), completed: !m.listModel.Selected.Completed()}
 			})
 		case "sync":
 			m.listModel.Method = ""

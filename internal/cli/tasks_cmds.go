@@ -155,7 +155,7 @@ func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 					return fmt.Errorf("incorrect task id: %w", err)
 				}
 			}
-			err := s.ToggleCompleted(id, true)
+			err := s.SetTaskCompleted(id, true)
 			if err != nil {
 				return fmt.Errorf("failed to mark task completed: %w", err)
 			}
@@ -172,17 +172,21 @@ func NewGetAllTodoistTasks() *cobra.Command {
 
 			// dateStr := time.Now().Format("2006-01-02")
 			// date, _ := time.Parse("2006-01-02", dateStr)
-			// tasks, err := client.CreateTask(&tasks.Task{
+			// task := &tasks.Task{
+			// 	TodoistID:   "6c7Fh8rJ3X7FCJ24",
 			// 	Title:       "title1",
-			// 	Description: "Desc",
-			// 	Due:         date,
-			// })
-			tasks, err := client.GetAllTasks()
+			// 	Description: "escription",
+			// 	Due:         time.Now(),
+			// }
+			// tasks, err := client.CreateTask(task)
+			// tasks, err := client.PatchTask(task)
+			// tasks, err := client.GetAllTasks()
+			err := client.SetTaskCompleted("6c7Fh8rJ3X7FCJ24", false)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Println(tasks)
+			// fmt.Println(tasks)
 		},
 	}
 }
