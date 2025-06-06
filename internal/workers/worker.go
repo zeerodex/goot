@@ -2,7 +2,6 @@ package workers
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/zeerodex/goot/internal/apis"
@@ -15,11 +14,11 @@ type Worker struct {
 	jobQueue <-chan APIJob
 	resultCh chan<- APIJobResult
 
-	apis []apis.API
+	apis map[string]apis.API
 	repo repositories.TaskRepository
 }
 
-func NewWorker(id int, jobChan <-chan APIJob, resChan chan<- APIJobResult, apis []apis.API, repo repositories.TaskRepository) *Worker {
+func NewWorker(id int, jobChan <-chan APIJob, resChan chan<- APIJobResult, apis map[string]apis.API, repo repositories.TaskRepository) *Worker {
 	return &Worker{
 		ID:       id,
 		jobQueue: jobChan,
@@ -80,12 +79,12 @@ func (w *Worker) processAPIJob(job APIJob) APIJobResult {
 }
 
 func (w *Worker) processDeleteTaskOp(id int) error {
-	for _, api := range w.apis {
-		googleId, err := w.repo.GetTaskGoogleID(id)
+	for apiName, api := range w.apis {
+		apiId, err := w.repo.GetTaskAPIID(id, apiName)
 		if err != nil {
 			return err
 		}
-		err = api.DeleteTaskByID(googleId)
+		err = api.DeleteTaskByID(apiId)
 		if err != nil {
 			return err
 		}
@@ -95,13 +94,21 @@ func (w *Worker) processDeleteTaskOp(id int) error {
 }
 
 func (w *Worker) processCreateTaskOp(task *tasks.Task) error {
-	for _, api := range w.apis {
-		gtask, err := api.CreateTask(task)
+	for apiName, api := range w.apis {
+		apiTask, err := api.CreateTask(task)
 		if err != nil {
 			return err
 		}
 
-		err = w.repo.UpdateGoogleID(task.ID, gtask.GoogleID)
+		var apiId string
+		switch apiName {
+		case "gtasks":
+			apiId = apiTask.GoogleID
+		case "todoist":
+			apiId = apiTask.TodoistID
+		}
+
+		err = w.repo.UpdateTaskAPIID(task.ID, apiId, apiName)
 		if err != nil {
 			return err
 		}
@@ -111,25 +118,22 @@ func (w *Worker) processCreateTaskOp(task *tasks.Task) error {
 
 func (w *Worker) processUpdateTaskOp(task *tasks.Task) error {
 	for _, api := range w.apis {
-		if task.GoogleID == "" {
-			return fmt.Errorf("task ID %d has no google id, run sync to add task in gtasks", task.ID)
-		} else {
-			_, err := api.PatchTask(task)
-			if err != nil {
-				return err
-			}
+		_, err := api.PatchTask(task)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (w *Worker) processSetTaskCompletedOp(id int, completed bool) error {
-	for _, api := range w.apis {
-		googleId, err := w.repo.GetTaskGoogleID(id)
+	for apiName, api := range w.apis {
+		apiId, err := w.repo.GetTaskAPIID(id, apiName)
 		if err != nil {
 			return err
 		}
-		err = api.SetTaskCompleted(googleId, completed)
+
+		err = api.SetTaskCompleted(apiId, completed)
 		if err != nil {
 			return err
 		}

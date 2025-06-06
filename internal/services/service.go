@@ -6,6 +6,7 @@ import (
 
 	"github.com/zeerodex/goot/internal/apis"
 	"github.com/zeerodex/goot/internal/apis/gtasksapi"
+	"github.com/zeerodex/goot/internal/apis/todoist"
 	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/repositories"
 	"github.com/zeerodex/goot/internal/tasks"
@@ -37,14 +38,17 @@ type taskService struct {
 }
 
 func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskService, error) {
-	var apis []apis.API
+	apis := make(map[string]apis.API)
 	for api, enabled := range cfg.APIs {
 		if api == "google" && enabled {
 			srv, err := gtasksapi.GetService()
 			if err != nil {
 				return nil, fmt.Errorf("failed to enable Google API: %v", err)
 			}
-			apis = append(apis, gtasksapi.NewGTasksApi(srv, cfg.Google.ListId))
+			apis["gtasks"] = gtasksapi.NewGTasksApi(srv, cfg.Google.ListId)
+		}
+		if api == "todoist" && enabled {
+			apis["todoist"] = todoist.NewTodoistClient("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
 		}
 	}
 

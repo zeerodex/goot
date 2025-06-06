@@ -3,6 +3,7 @@ package todoist
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -135,6 +136,8 @@ func (c TodoistClient) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 		return nil, fmt.Errorf("error encoding json: %w", err)
 	}
 
+	task.TodoistID = tt.ID
+
 	return tt.Task(), nil
 }
 
@@ -189,6 +192,9 @@ func (TodoistClient) GetAllTasksWithDeleted() (_ tasks.Tasks, _ error) {
 }
 
 func (c *TodoistClient) PatchTask(task *tasks.Task) (*tasks.Task, error) {
+	if task.TodoistID == "" {
+		return nil, errors.New("error!!")
+	}
 	resp, err := c.makeRequest("POST", fmt.Sprintf("/tasks/%s", task.TodoistID), newTaskCU(task))
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -208,8 +214,10 @@ func (c *TodoistClient) PatchTask(task *tasks.Task) (*tasks.Task, error) {
 }
 
 func (c *TodoistClient) SetTaskCompleted(id string, completed bool) error {
-	method := "close"
+	var method string
 	if completed {
+		method = "close"
+	} else {
 		method = "reopen"
 	}
 	resp, err := c.makeRequest("POST", fmt.Sprintf("/tasks/%s/%s", id, method), nil)
