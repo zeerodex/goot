@@ -10,6 +10,7 @@ import (
 type Task struct {
 	ID           int `json:"id"`
 	GoogleID     string
+	TodoistID    string
 	Title        string    `json:"title"`
 	Description  string    `json:"description,omitempty"`
 	Due          time.Time `json:"due"`
