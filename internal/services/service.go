@@ -48,7 +48,7 @@ func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskS
 			apis["gtasks"] = gtasksapi.NewGTasksApi(srv, cfg.Google.ListId)
 		}
 		if api == "todoist" && enabled {
-			apis["todoist"] = todoist.NewTodoistClient("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
+			apis["todoist"] = todoist.NewTodoistClient("eac91650f22e2b8fae2e31198c00541e6cd0ae19")
 		}
 	}
 

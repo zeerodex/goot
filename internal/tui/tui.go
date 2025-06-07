@@ -94,6 +94,8 @@ type syncTasksMsg struct{}
 
 type fetchTasksMsg struct{}
 
+type createTaskMsg struct{}
+
 type fetchedTasksMsg struct {
 	Tasks tasks.Tasks
 }
@@ -107,7 +109,7 @@ type setTaskCompletedMsg struct {
 	completed bool
 }
 
-type createTaskMsg struct {
+type createdTaskMsg struct {
 	Task *tasks.Task
 }
 
@@ -178,14 +180,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentState = CreationView
 
 	case updatedTaskMsg:
-		cmds = append(cmds, updateTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 		m.creationModel = components.InitialCreationModel()
+		cmds = append(cmds, updateTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 
 		m.currentState = m.previuosState
 
 	case createTaskMsg:
-		cmds = append(cmds, createTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 		m.creationModel = components.InitialCreationModel()
+
+		m.previuosState = m.currentState
+		m.currentState = CreationView
+
+	case createdTaskMsg:
+		m.creationModel = components.InitialCreationModel()
+		cmds = append(cmds, createTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 
 		m.currentState = m.previuosState
 
@@ -211,7 +219,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "create":
 			m.listModel.Method = ""
 			m.previuosState = m.currentState
-			m.currentState = CreationView
+			cmds = append(cmds, func() tea.Msg {
+				return createTaskMsg{}
+			})
 		case "update":
 			m.listModel.Method = ""
 			m.previuosState = m.currentState
@@ -239,7 +249,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.creationModel.Method {
 			case "create":
 				cmds = append(cmds, func() tea.Msg {
-					return createTaskMsg{Task: m.creationModel.Task}
+					return createdTaskMsg{Task: m.creationModel.Task}
 				})
 			case "update":
 				cmds = append(cmds, func() tea.Msg {
