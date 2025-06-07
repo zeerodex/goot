@@ -114,7 +114,7 @@ func newTaskCU(task *tasks.Task) *taskCU {
 	if timeutil.IsOnlyDate(task.Due) {
 		ct.DueDate = task.Due.Format("2006-01-02")
 	} else {
-		ct.DueDateTime = task.Due.Format(time.RFC3339)
+		ct.DueDateTime = task.Due.Format("2006-01-02T15:04")
 	}
 	return ct
 }

@@ -47,7 +47,7 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
-	stmt, err := r.db.Prepare("INSERT INTO tasks (google_id, title, description, due, completed, last_modified) VALUES (?, ?, ?, ?, ?, ?)")
+	stmt, err := r.db.Prepare("INSERT INTO tasks (google_id, todoist_id, title, description, due, completed, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare create task statement: %w", err)
 	}
@@ -55,6 +55,7 @@ func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 
 	res, err := stmt.Exec(
 		task.GoogleID,
+		task.TodoistID,
 		task.Title,
 		task.Description,
 		task.Due.Format(time.RFC3339),
