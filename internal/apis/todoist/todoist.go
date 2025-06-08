@@ -3,10 +3,10 @@ package todoist
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/zeerodex/goot/internal/apis"
@@ -15,19 +15,35 @@ import (
 )
 
 const (
-	TodoistAPIURL = "https://api.todoist.com/api/v1"
+	apiURL   = "https://api.todoist.com/api/v1"
+	authURL  = "https://todoist.com/oauth/authorize"
+	tokenURL = "https://todoist.com/oauth/access_token"
+	tokFile  = "todoist_token.json"
 )
 
-type TodoistClient struct {
+var Scopes = []string{"data:read_write"}
+
+type TodoistAPI struct {
 	client *http.Client
-	token  string
 }
 
-func NewTodoistClient(token string) apis.API {
-	return &TodoistClient{
-		client: http.DefaultClient,
-		token:  token,
+func NewTodoistAPI() (apis.API, error) {
+	clientID, clientSecret := os.Getenv("TODOIST_CLIENT_ID"), os.Getenv("TODOIST_CLIENT_SECRET")
+	client, err := apis.NewOAuthHandler(
+		clientID,
+		clientSecret,
+		authURL,
+		tokenURL,
+		tokFile,
+		Scopes).GetClient()
+	if err != nil {
+		// HACK:
+		return nil, fmt.Errorf("failed to init oauth handler: %w", err)
 	}
+
+	return &TodoistAPI{
+		client: client,
+	}, nil
 }
 
 type Task struct {
@@ -74,12 +90,7 @@ func TodoistTask(t *tasks.Task) *Task {
 	return &tt
 }
 
-type response struct {
-	Tasks       []Task `json:"results,omitempty"`
-	Next_cursor string `json:"next_cursor,omitempty"`
-}
-
-func (c *TodoistClient) makeRequest(method string, endpoint string, data any) (*http.Response, error) {
+func (c *TodoistAPI) makeRequest(method string, endpoint string, data any) (*http.Response, error) {
 	var reqBody io.Reader
 	if data != nil {
 		jsonBody, err := json.Marshal(data)
@@ -88,12 +99,11 @@ func (c *TodoistClient) makeRequest(method string, endpoint string, data any) (*
 		}
 		reqBody = bytes.NewBuffer(jsonBody)
 	}
-	req, err := http.NewRequest(method, TodoistAPIURL+endpoint, reqBody)
+	req, err := http.NewRequest(method, apiURL+endpoint, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Content-Type", "application/json")
 
 	return c.client.Do(req)
@@ -111,15 +121,17 @@ func newTaskCU(task *tasks.Task) *taskCU {
 		Content:     task.Title,
 		Description: task.Description,
 	}
-	if timeutil.IsOnlyDate(task.Due) {
-		ct.DueDate = task.Due.Format("2006-01-02")
-	} else {
-		ct.DueDateTime = task.Due.Format("2006-01-02T15:04")
+	if !task.Due.IsZero() {
+		if timeutil.IsOnlyDate(task.Due) {
+			ct.DueDate = task.Due.Format("2006-01-02")
+		} else {
+			ct.DueDateTime = task.Due.Format("2006-01-02T15:04")
+		}
 	}
 	return ct
 }
 
-func (c TodoistClient) CreateTask(task *tasks.Task) (*tasks.Task, error) {
+func (c TodoistAPI) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	resp, err := c.makeRequest("POST", "/tasks", newTaskCU(task))
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -141,7 +153,12 @@ func (c TodoistClient) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	return tt.Task(), nil
 }
 
-func (c *TodoistClient) GetAllTasks() (tasks.Tasks, error) {
+type paginatedResponse struct {
+	Tasks       []Task `json:"results,omitempty"`
+	Next_cursor string `json:"next_cursor,omitempty"`
+}
+
+func (c *TodoistAPI) GetAllTasks() (tasks.Tasks, error) {
 	resp, err := c.makeRequest("GET", "/tasks", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -152,22 +169,22 @@ func (c *TodoistClient) GetAllTasks() (tasks.Tasks, error) {
 		return nil, err
 	}
 
-	var response response
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	var paginatedResp paginatedResponse
+	err = json.NewDecoder(resp.Body).Decode(&paginatedResp)
 	if err != nil {
 		return nil, fmt.Errorf("error encoding json: %w", err)
 	}
 
 	// HACK:
-	tasks := make(tasks.Tasks, len(response.Tasks))
-	for i, t := range response.Tasks {
+	tasks := make(tasks.Tasks, len(paginatedResp.Tasks))
+	for i, t := range paginatedResp.Tasks {
 		tasks[i] = *t.Task()
 	}
 
 	return tasks, nil
 }
 
-func (c *TodoistClient) GetTaskByID(id string) (*tasks.Task, error) {
+func (c *TodoistAPI) GetTaskByID(id string) (*tasks.Task, error) {
 	resp, err := c.makeRequest("GET", fmt.Sprintf("/tasks/%s", id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -187,14 +204,11 @@ func (c *TodoistClient) GetTaskByID(id string) (*tasks.Task, error) {
 	return task.Task(), nil
 }
 
-func (TodoistClient) GetAllTasksWithDeleted() (_ tasks.Tasks, _ error) {
+func (TodoistAPI) GetAllTasksWithDeleted() (_ tasks.Tasks, _ error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (c *TodoistClient) PatchTask(task *tasks.Task) (*tasks.Task, error) {
-	if task.TodoistID == "" {
-		return nil, errors.New("error!!")
-	}
+func (c *TodoistAPI) PatchTask(task *tasks.Task) (*tasks.Task, error) {
 	resp, err := c.makeRequest("POST", fmt.Sprintf("/tasks/%s", task.TodoistID), newTaskCU(task))
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -213,7 +227,7 @@ func (c *TodoistClient) PatchTask(task *tasks.Task) (*tasks.Task, error) {
 	return t.Task(), nil
 }
 
-func (c *TodoistClient) SetTaskCompleted(id string, completed bool) error {
+func (c *TodoistAPI) SetTaskCompleted(id string, completed bool) error {
 	var method string
 	if completed {
 		method = "close"
@@ -233,7 +247,7 @@ func (c *TodoistClient) SetTaskCompleted(id string, completed bool) error {
 	return nil
 }
 
-func (c *TodoistClient) DeleteTaskByID(id string) error {
+func (c *TodoistAPI) DeleteTaskByID(id string) error {
 	resp, err := c.makeRequest("DELETE", fmt.Sprintf("/tasks/%s", id), nil)
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)

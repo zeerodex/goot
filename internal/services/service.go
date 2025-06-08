@@ -38,21 +38,25 @@ type taskService struct {
 }
 
 func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskService, error) {
-	apis := make(map[string]apis.API)
+	apisMap := make(map[string]apis.API)
 	for api, enabled := range cfg.APIs {
 		if api == "google" && enabled {
-			srv, err := gtasksapi.GetService()
+			googleAPI, err := gtasksapi.NewGTasksApi(cfg.Google.ListId)
 			if err != nil {
 				return nil, fmt.Errorf("failed to enable Google API: %v", err)
 			}
-			apis["gtasks"] = gtasksapi.NewGTasksApi(srv, cfg.Google.ListId)
+			apisMap["gtasks"] = googleAPI
 		}
 		if api == "todoist" && enabled {
-			apis["todoist"] = todoist.NewTodoistClient("eac91650f22e2b8fae2e31198c00541e6cd0ae19")
+			todoistAPI, err := todoist.NewTodoistAPI()
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize Todoist API: %w", err)
+			}
+			apisMap["todoist"] = todoistAPI
 		}
 	}
 
-	wp := workers.NewAPIWorkerPool(3, 5, apis, repo)
+	wp := workers.NewAPIWorkerPool(3, 5, apisMap, repo)
 	wp.Start()
 
 	return &taskService{repo: repo, cfg: cfg, wp: wp}, nil

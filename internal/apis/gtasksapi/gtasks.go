@@ -1,14 +1,44 @@
 package gtasksapi
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"time"
 
+	"google.golang.org/api/option"
 	gtasks "google.golang.org/api/tasks/v1"
 
 	"github.com/zeerodex/goot/internal/apis"
 	"github.com/zeerodex/goot/internal/tasks"
 )
+
+var (
+	tokFile  = "gtasks_token.json"
+	authURL  = "https://accounts.google.com/o/oauth2/auth"
+	tokenURL = "https://oauth2.googleapis.com/token"
+)
+
+func GetService() (*gtasks.Service, error) {
+	clientID, clientSecret := os.Getenv("GOOGLE_CLIENT_ID"), os.Getenv("GOOGLE_CLIENT_SECRET")
+	client, err := apis.NewOAuthHandler(
+		clientID,
+		clientSecret,
+		authURL,
+		tokenURL,
+		tokFile,
+		[]string{gtasks.TasksScope}).
+		GetClient()
+	if err != nil {
+		// HACK:
+		return nil, fmt.Errorf("failed to init oauth handler: %w", err)
+	}
+	srv, err := gtasks.NewService(context.Background(), option.WithHTTPClient(client))
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve tasks service: %w", err)
+	}
+	return srv, nil
+}
 
 type GTasksApi struct {
 	srv *gtasks.Service
@@ -16,8 +46,12 @@ type GTasksApi struct {
 	ListId string
 }
 
-func NewGTasksApi(srv *gtasks.Service, listId string) apis.API {
-	return &GTasksApi{srv: srv, ListId: listId}
+func NewGTasksApi(listId string) (apis.API, error) {
+	srv, err := GetService()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gtasks service: %w", err)
+	}
+	return &GTasksApi{srv: srv, ListId: listId}, nil
 }
 
 func (api *GTasksApi) CreateTask(task *tasks.Task) (*tasks.Task, error) {

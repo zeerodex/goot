@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zeerodex/goot/internal/apis/todoist"
 	"github.com/zeerodex/goot/internal/services"
 	"github.com/zeerodex/goot/internal/tasks"
 	"github.com/zeerodex/goot/internal/tui"
@@ -168,7 +167,7 @@ func NewGetAllTodoistTasks() *cobra.Command {
 	return &cobra.Command{
 		Use: "todoist_get",
 		Run: func(cmd *cobra.Command, args []string) {
-			client := todoist.NewTodoistClient("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
+			// _ := todoist.NewTodoistAPI("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
 
 			// dateStr := time.Now().Format("2006-01-02")
 			// date, _ := time.Parse("2006-01-02", dateStr)
@@ -181,11 +180,11 @@ func NewGetAllTodoistTasks() *cobra.Command {
 			// tasks, err := client.CreateTask(task)
 			// tasks, err := client.PatchTask(task)
 			// tasks, err := client.GetAllTasks()
-			err := client.SetTaskCompleted("6c7Fh8rJ3X7FCJ24", false)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
+			// err := client.SetTaskCompleted("6c7Fh8rJ3X7FCJ24", false)
+			// if err != nil {
+			// 	fmt.Println(err.Error())
+			// 	return
+			// }
 			// fmt.Println(tasks)
 		},
 	}
