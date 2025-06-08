@@ -2,11 +2,14 @@ package apis
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,17 +40,24 @@ func NewOAuthHandler(clientID, clientSecret, authURL, tokenURL, tokFile string, 
 				TokenURL: tokenURL,
 			},
 		},
-		state:     "state-token",
+		state:     generateRandomState(),
 		tokFile:   tokFile,
 		tokenChan: make(chan *oauth2.Token),
 		errChan:   make(chan error),
 	}
 }
 
+func generateRandomState() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)
+}
+
 func (h *OAuthHandler) GetClient() (*http.Client, error) {
 	tok, err := h.tokenFromFile(h.tokFile)
 	if err != nil || !tok.Valid() {
-		fmt.Println("No token found or token invalid. Please log in")
+		apiName, _ := strings.CutSuffix(h.tokFile, "_token.json")
+		fmt.Printf("No token found or token invalid for %s api.\n", apiName)
 		tok, err = h.getTokenFromWeb(h.config)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get token from web: %w", err)
@@ -78,8 +88,8 @@ func (h *OAuthHandler) Login() error {
 }
 
 func (h *OAuthHandler) getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser:\n%s\n", authURL)
+	authURL := config.AuthCodeURL(h.state, oauth2.AccessTypeOffline)
+	fmt.Printf("Go to the following link in your browser to log in:\n%s\n", authURL)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth/callback", h.oauthCallbackHandler)
@@ -166,7 +176,6 @@ func (h *OAuthHandler) tokenFromFile(file string) (*oauth2.Token, error) {
 }
 
 func (h *OAuthHandler) saveToken(path string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", path)
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Fatalf("Unable to cache oauth token: %v", err)
