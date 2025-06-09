@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -9,12 +10,6 @@ import (
 func InitDB() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", "database.db")
 	if err != nil {
-		return nil, err
-	}
-
-	err = db.Ping()
-	if err != nil {
-		db.Close()
 		return nil, err
 	}
 
@@ -33,7 +28,37 @@ func InitDB() (*sql.DB, error) {
 
 	_, err = db.Exec(stmt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create tasks table: %w", err)
+	}
+
+	gtasksSnapshotsStmt := `
+	CREATE TABLE IF NOT EXISTS gtasks_snapshots (
+	id INTEGER PRIMARY KEY,
+	gtasks_id TEXT,
+	title TEXT,
+	description TEXT,
+	due TEXT,
+	last_modified TEXT,
+	completed BOOl DEFAULT 0)`
+
+	_, err = db.Exec(gtasksSnapshotsStmt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gtasks_snapshots table: %w", err)
+	}
+
+	todoistSnapshotsStmt := `
+	CREATE TABLE IF NOT EXISTS todoist_snapshots (
+	id INTEGER PRIMARY KEY,
+	todoist_id TEXT,
+	title TEXT,
+	description TEXT,
+	due TEXT,
+	last_modified TEXT,
+	completed BOOl DEFAULT 0)`
+
+	_, err = db.Exec(todoistSnapshotsStmt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create todoist_snapshots table: %w", err)
 	}
 
 	return db, nil
