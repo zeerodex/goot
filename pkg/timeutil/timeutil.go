@@ -2,6 +2,7 @@ package timeutil
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,6 +15,17 @@ var (
 	layout     = "2006-01-02 15:04"
 
 	inNUnitRegex = regexp.MustCompile(`^in (\d+) (day|week|month|year)s?$`)
+
+	layouts = []string{
+		"",
+		"2006-01-02",
+		"15:04",
+		"2006-01-02 15:04",
+		"2006-01-02T15:04",
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05.000Z",
+	}
 
 	weekdayMap = map[string]time.Weekday{
 		"sunday":    time.Sunday,
@@ -34,6 +46,25 @@ var (
 
 	loc = time.UTC
 )
+
+func Parse(value string) (time.Time, error) {
+	var timestamp time.Time
+	var err error
+	for _, layout := range layouts {
+		timestamp, err = time.Parse(layout, value)
+		if err == nil {
+			return timestamp, nil
+		}
+	}
+	return timestamp, fmt.Errorf("cannot parse timestamp: %w", err)
+}
+
+func IsOnlyDate(datetime time.Time) bool {
+	if datetime.Hour() == 0 && datetime.Minute() == 0 && datetime.Second() == 0 {
+		return true
+	}
+	return false
+}
 
 func ParseWeekDay(weekdayStr string) (time.Weekday, error) {
 	weekdayStr = strings.TrimSpace(weekdayStr)

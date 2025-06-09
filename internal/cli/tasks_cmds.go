@@ -154,11 +154,38 @@ func NewDoneTaskCmd(s services.TaskService) *cobra.Command {
 					return fmt.Errorf("incorrect task id: %w", err)
 				}
 			}
-			err := s.ToggleCompleted(id, true)
+			err := s.SetTaskCompleted(id, true)
 			if err != nil {
 				return fmt.Errorf("failed to mark task completed: %w", err)
 			}
 			return nil
+		},
+	}
+}
+
+func NewGetAllTodoistTasks() *cobra.Command {
+	return &cobra.Command{
+		Use: "todoist_get",
+		Run: func(cmd *cobra.Command, args []string) {
+			// _ := todoist.NewTodoistAPI("d796823ac5129b8ac4bd5df51fa2e7568e222b28")
+
+			// dateStr := time.Now().Format("2006-01-02")
+			// date, _ := time.Parse("2006-01-02", dateStr)
+			// task := &tasks.Task{
+			// 	TodoistID:   "6c7Fh8rJ3X7FCJ24",
+			// 	Title:       "title1",
+			// 	Description: "escription",
+			// 	Due:         time.Now(),
+			// }
+			// tasks, err := client.CreateTask(task)
+			// tasks, err := client.PatchTask(task)
+			// tasks, err := client.GetAllTasks()
+			// err := client.SetTaskCompleted("6c7Fh8rJ3X7FCJ24", false)
+			// if err != nil {
+			// 	fmt.Println(err.Error())
+			// 	return
+			// }
+			// fmt.Println(tasks)
 		},
 	}
 }

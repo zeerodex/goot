@@ -80,9 +80,9 @@ func deleteTaskCmd(s services.TaskService, id int) tea.Cmd {
 	}
 }
 
-func toggleCompletedCmd(s services.TaskService, id int, completed bool) tea.Cmd {
+func setTaskCompletedCmd(s services.TaskService, id int, completed bool) tea.Cmd {
 	return func() tea.Msg {
-		err := s.ToggleCompleted(id, completed)
+		err := s.SetTaskCompleted(id, completed)
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -94,6 +94,8 @@ type syncTasksMsg struct{}
 
 type fetchTasksMsg struct{}
 
+type createTaskMsg struct{}
+
 type fetchedTasksMsg struct {
 	Tasks tasks.Tasks
 }
@@ -102,12 +104,12 @@ type deleteTaskMsg struct {
 	id int
 }
 
-type toggleCompletedMsg struct {
+type setTaskCompletedMsg struct {
 	id        int
 	completed bool
 }
 
-type createTaskMsg struct {
+type createdTaskMsg struct {
 	Task *tasks.Task
 }
 
@@ -158,8 +160,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case deleteTaskMsg:
 		cmds = append(cmds, deleteTaskCmd(m.s, msg.id), m.listenForAPIWorkerResults())
 
-	case toggleCompletedMsg:
-		cmds = append(cmds, toggleCompletedCmd(m.s, msg.id, msg.completed), m.listenForAPIWorkerResults())
+	case setTaskCompletedMsg:
+		cmds = append(cmds, setTaskCompletedCmd(m.s, msg.id, msg.completed), m.listenForAPIWorkerResults())
 
 	case fetchTasksMsg:
 		cmds = append(cmds, fetchTasksCmd(m.s))
@@ -178,14 +180,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentState = CreationView
 
 	case updatedTaskMsg:
-		cmds = append(cmds, updateTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 		m.creationModel = components.InitialCreationModel()
+		cmds = append(cmds, updateTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 
 		m.currentState = m.previuosState
 
 	case createTaskMsg:
-		cmds = append(cmds, createTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 		m.creationModel = components.InitialCreationModel()
+
+		m.previuosState = m.currentState
+		m.currentState = CreationView
+
+	case createdTaskMsg:
+		m.creationModel = components.InitialCreationModel()
+		cmds = append(cmds, createTaskCmd(m.s, msg.Task), m.listenForAPIWorkerResults())
 
 		m.currentState = m.previuosState
 
@@ -211,7 +219,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "create":
 			m.listModel.Method = ""
 			m.previuosState = m.currentState
-			m.currentState = CreationView
+			cmds = append(cmds, func() tea.Msg {
+				return createTaskMsg{}
+			})
 		case "update":
 			m.listModel.Method = ""
 			m.previuosState = m.currentState
@@ -221,7 +231,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "toogle":
 			m.listModel.Method = ""
 			cmds = append(cmds, func() tea.Msg {
-				return toggleCompletedMsg{id: m.listModel.Selected.ID(), completed: !m.listModel.Selected.Completed()}
+				return setTaskCompletedMsg{id: m.listModel.Selected.ID(), completed: !m.listModel.Selected.Completed()}
 			})
 		case "sync":
 			m.listModel.Method = ""
@@ -239,7 +249,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.creationModel.Method {
 			case "create":
 				cmds = append(cmds, func() tea.Msg {
-					return createTaskMsg{Task: m.creationModel.Task}
+					return createdTaskMsg{Task: m.creationModel.Task}
 				})
 			case "update":
 				cmds = append(cmds, func() tea.Msg {

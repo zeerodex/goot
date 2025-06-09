@@ -6,6 +6,7 @@ import (
 
 	"github.com/zeerodex/goot/internal/apis"
 	"github.com/zeerodex/goot/internal/apis/gtasksapi"
+	"github.com/zeerodex/goot/internal/apis/todoist"
 	"github.com/zeerodex/goot/internal/config"
 	"github.com/zeerodex/goot/internal/repositories"
 	"github.com/zeerodex/goot/internal/tasks"
@@ -17,7 +18,7 @@ type TaskService interface {
 	GetTaskByID(id int) (*tasks.Task, error)
 	GetAllTasks() (tasks.Tasks, error)
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
-	ToggleCompleted(id int, completed bool) error
+	SetTaskCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
 	DeleteTaskByID(id int) error
 	UpdateTask(task *tasks.Task) (*tasks.Task, error)
@@ -37,18 +38,25 @@ type taskService struct {
 }
 
 func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskService, error) {
-	var apis []apis.API
+	apisMap := make(map[string]apis.API)
 	for api, enabled := range cfg.APIs {
 		if api == "google" && enabled {
-			srv, err := gtasksapi.GetService()
+			googleAPI, err := gtasksapi.NewGTasksApi(cfg.Google.ListId)
 			if err != nil {
 				return nil, fmt.Errorf("failed to enable Google API: %v", err)
 			}
-			apis = append(apis, gtasksapi.NewGTasksApi(srv, cfg.Google.ListId))
+			apisMap["gtasks"] = googleAPI
+		}
+		if api == "todoist" && enabled {
+			todoistAPI, err := todoist.NewTodoistAPI()
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize Todoist API: %w", err)
+			}
+			apisMap["todoist"] = todoistAPI
 		}
 	}
 
-	wp := workers.NewAPIWorkerPool(3, 5, apis, repo)
+	wp := workers.NewAPIWorkerPool(3, 5, apisMap, repo)
 	wp.Start()
 
 	return &taskService{repo: repo, cfg: cfg, wp: wp}, nil
@@ -123,13 +131,13 @@ func (s *taskService) GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Task
 	return s.repo.GetAllPendingTasks(minTime, maxTime)
 }
 
-func (s *taskService) ToggleCompleted(id int, completed bool) error {
-	if err := s.repo.ToggleCompleted(id, completed); err != nil {
+func (s *taskService) SetTaskCompleted(id int, completed bool) error {
+	if err := s.repo.SetTaskCompleted(id, completed); err != nil {
 		return err
 	}
 
 	err := s.wp.Submit(workers.APIJob{
-		Operation: workers.ToggleCompletedOp,
+		Operation: workers.SetTaskCompletedOp,
 		TaskID:    id,
 		Completed: completed,
 	})

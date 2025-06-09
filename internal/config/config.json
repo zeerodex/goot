@@ -2,7 +2,7 @@
   "apis": {
     "google": true,
     "ticktick": false,
-    "todoist": false
+    "todoist": true
   },
   "google": {
     "list-id": "@default",

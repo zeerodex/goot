@@ -1,3 +1,5 @@
+.env
+gtasks_token.json
+todoist_token.json
 database.db
-token.json
-credentials.json
+goot

@@ -24,14 +24,17 @@ type TaskRepository interface {
 	GetTaskGoogleID(id int) (string, error)
 	GetTaskIDByGoogleID(googleId string) (int, error)
 
+	GetTaskAPIID(id int, apiName string) (string, error)
+
 	UpdateTask(task *tasks.Task) (*tasks.Task, error)
 	UpdateGoogleID(id int, googleID string) error
+	UpdateTaskAPIID(id int, apiId string, apiName string) error
 
 	DeleteTaskByID(id int) error
 	SoftDeleteTaskByID(id int) error
 	DeleteTaskByTitle(title string) error
 
-	ToggleCompleted(id int, completed bool) error
+	SetTaskCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
 }
 
@@ -44,7 +47,7 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
-	stmt, err := r.db.Prepare("INSERT INTO tasks (google_id, title, description, due, completed, last_modified) VALUES (?, ?, ?, ?, ?, ?)")
+	stmt, err := r.db.Prepare("INSERT INTO tasks (google_id, todoist_id, title, description, due, completed, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare create task statement: %w", err)
 	}
@@ -52,6 +55,7 @@ func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 
 	res, err := stmt.Exec(
 		task.GoogleID,
+		task.TodoistID,
 		task.Title,
 		task.Description,
 		task.Due.Format(time.RFC3339),
@@ -71,7 +75,7 @@ func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 }
 
 func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
-	rows, err := r.db.Query("SELECT id, google_id, title, description, due, completed, notified, last_modified, deleted FROM tasks WHERE deleted = 0 ORDER BY completed, due")
+	rows, err := r.db.Query("SELECT id, google_id, todoist_id, title, description, due, completed, notified, last_modified, deleted FROM tasks WHERE deleted = 0 ORDER BY completed, due")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query all tasks: %w", err)
 	}
@@ -82,7 +86,7 @@ func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 		var task tasks.Task
 		var dueStr string
 		var lastModifiedStr string
-		if err := rows.Scan(&task.ID, &task.GoogleID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr, &task.Deleted); err != nil {
+		if err := rows.Scan(&task.ID, &task.GoogleID, &task.TodoistID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr, &task.Deleted); err != nil {
 			return nil, fmt.Errorf("failed to scan task row: %w", err)
 		}
 		if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
@@ -97,7 +101,7 @@ func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 }
 
 func (r *taskRepository) GetAllDeletedTasks() (tasks.Tasks, error) {
-	rows, err := r.db.Query("SELECT id, google_id, title, description, due, completed, notified, last_modified, deleted FROM tasks WHERE deleted = 1 ORDER BY completed, due")
+	rows, err := r.db.Query("SELECT id, google_id, todoist_id, title, description, due, completed, notified, last_modified, deleted FROM tasks WHERE deleted = 1 ORDER BY completed, due")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query all tasks: %w", err)
 	}
@@ -108,7 +112,7 @@ func (r *taskRepository) GetAllDeletedTasks() (tasks.Tasks, error) {
 		var task tasks.Task
 		var dueStr string
 		var lastModifiedStr string
-		if err := rows.Scan(&task.ID, &task.GoogleID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr, &task.Deleted); err != nil {
+		if err := rows.Scan(&task.ID, &task.GoogleID, &task.TodoistID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr, &task.Deleted); err != nil {
 			return nil, fmt.Errorf("failed to scan task row: %w", err)
 		}
 		if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
@@ -123,12 +127,12 @@ func (r *taskRepository) GetAllDeletedTasks() (tasks.Tasks, error) {
 }
 
 func (r *taskRepository) GetTaskByID(id int) (*tasks.Task, error) {
-	row := r.db.QueryRow("SELECT id, google_id, title, description, due, completed, notified, last_modified FROM tasks WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, google_id, todoist_id, title, description, due, completed, notified, last_modified FROM tasks WHERE id = ?", id)
 
 	var task tasks.Task
 	var dueStr string
 	var lastModifiedStr string
-	err := row.Scan(&task.ID, &task.GoogleID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr)
+	err := row.Scan(&task.ID, &task.GoogleID, &task.TodoistID, &task.Title, &task.Description, &dueStr, &task.Completed, &task.Notified, &lastModifiedStr)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("task with ID %d not found: %w", id, ErrTaskNotFound)
@@ -223,6 +227,24 @@ func (r *taskRepository) GetTaskGoogleID(id int) (string, error) {
 	return googleId.String, nil
 }
 
+func (r *taskRepository) GetTaskAPIID(id int, apiName string) (string, error) {
+	field := GetAPIIDFieldName(apiName)
+	row := r.db.QueryRow(fmt.Sprintf("SELECT %s FROM tasks WHERE id = ?", field), id)
+
+	var googleId sql.NullString
+	err := row.Scan(&googleId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("task with ID %d not found when retrieving %s: %w", id, field, ErrTaskNotFound)
+		}
+		return "", fmt.Errorf("failed to retrieve %s for task ID %d: %w", field, id, err)
+	}
+	if !googleId.Valid {
+		return "", fmt.Errorf("%s is NULL for task ID %d", field, id)
+	}
+	return googleId.String, nil
+}
+
 func (r *taskRepository) GetTaskIDByGoogleID(googleId string) (int, error) {
 	if googleId == "" {
 		return 0, errors.New("google ID cannot be empty")
@@ -282,23 +304,45 @@ func (r *taskRepository) UpdateGoogleID(id int, googleID string) error {
 	return nil
 }
 
-func (r *taskRepository) ToggleCompleted(id int, completed bool) error {
+func (r *taskRepository) UpdateTaskAPIID(id int, apiId string, apiName string) error {
+	field := GetAPIIDFieldName(apiName)
+	stmt, err := r.db.Prepare(fmt.Sprintf("UPDATE tasks SET %s = ? WHERE id = ?", field))
+	if err != nil {
+		return fmt.Errorf("failed to prepare update task statement: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(apiId, id)
+	if err != nil {
+		return fmt.Errorf("failed to execute update task statement for ID %d: %w", id, err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected after updating task ID %d: %w", id, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("task with ID %d not found for update", id)
+	}
+	return nil
+}
+
+func (r *taskRepository) SetTaskCompleted(id int, completed bool) error {
 	stmt, err := r.db.Prepare("UPDATE tasks SET completed = ?, last_modified = ? WHERE id = ?")
 	if err != nil {
-		return fmt.Errorf("failed to prepare toggle completed statement: %w", err)
+		return fmt.Errorf("failed to prepare set task completed statement: %w", err)
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(completed, time.Now().Format(time.RFC3339), id)
 	if err != nil {
-		return fmt.Errorf("failed to execute toggle completed for task ID %d: %w", id, err)
+		return fmt.Errorf("failed to execute set completed for task ID %d: %w", id, err)
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected for toggle completed on task ID %d: %w", id, err)
+		return fmt.Errorf("failed to get rows affected for set completed on task ID %d: %w", id, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("task with ID %d not found for toggle completed: %w", id, ErrTaskNotFound)
+		return fmt.Errorf("task with ID %d not found for set completed: %w", id, ErrTaskNotFound)
 	}
 	return nil
 }
@@ -388,4 +432,17 @@ func (r *taskRepository) DeleteTaskByTitle(title string) error {
 		return fmt.Errorf("task with title '%s' not found for deletion: %w", title, ErrTaskNotFound)
 	}
 	return nil
+}
+
+func GetAPIIDFieldName(apiName string) string {
+	var field string
+	switch apiName {
+	case "todoist":
+		field = "todoist_id"
+	case "gtasks":
+		field = "google_id"
+	default:
+		field = ""
+	}
+	return field
 }

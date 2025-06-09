@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -21,6 +22,10 @@ type Config struct {
 }
 
 func LoadConfig(cfgPath string) (*Config, error) {
+	if err := godotenv.Load(); err != nil {
+		return nil, fmt.Errorf("error loading .env file: %w", err)
+	}
+
 	viper.SetConfigName("config")
 	viper.SetConfigType("json")
 	viper.AddConfigPath(cfgPath)
