@@ -34,7 +34,7 @@ func InitDB() (*sql.DB, error) {
 	gtasksSnapshotsStmt := `
 	CREATE TABLE IF NOT EXISTS gtasks_snapshots (
 	id INTEGER PRIMARY KEY,
-	gtasks_id TEXT,
+	api_id TEXT,
 	title TEXT,
 	description TEXT,
 	due TEXT,
@@ -49,7 +49,7 @@ func InitDB() (*sql.DB, error) {
 	todoistSnapshotsStmt := `
 	CREATE TABLE IF NOT EXISTS todoist_snapshots (
 	id INTEGER PRIMARY KEY,
-	todoist_id TEXT,
+	api_ID TEXT,
 	title TEXT,
 	description TEXT,
 	due TEXT,
