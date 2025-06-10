@@ -166,7 +166,7 @@ func (s *taskService) DeleteTaskByID(id int) error {
 }
 
 func (s *taskService) GetTaskGoogleID(id int) (string, error) {
-	return s.repo.GetTaskGoogleID(id)
+	return s.repo.GetTaskAPIID(id, "gtasks")
 }
 
 func (s *taskService) MarkAsNotified(id int) error {

@@ -83,7 +83,7 @@ func (r *apiSnapshotsRepository) GetAllTasks() (tasks.APITasks, error) {
 
 	var tasksList tasks.APITasks
 	for rows.Next() {
-		task, err := r.scanTask(rows)
+		task, err := r.scanAPITask(rows)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
@@ -108,7 +108,7 @@ func (r *apiSnapshotsRepository) GetTaskByID(id string) (*tasks.APITask, error) 
 		WHERE id = ?`, r.tableName)
 
 	row := r.db.QueryRow(query, id)
-	task, err := r.scanTaskFromRow(row)
+	task, err := r.scanAPITask(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrTaskNotFound
@@ -191,8 +191,7 @@ func (r *apiSnapshotsRepository) DeleteTaskByID(id string) error {
 	return nil
 }
 
-// scanTask scans a task from database rows
-func (r *apiSnapshotsRepository) scanTask(rows *sql.Rows) (*tasks.APITask, error) {
+func (r *apiSnapshotsRepository) scanAPITask(rows scanner) (*tasks.APITask, error) {
 	var task tasks.APITask
 	var dueStr, lastModifiedStr string
 
@@ -205,33 +204,11 @@ func (r *apiSnapshotsRepository) scanTask(rows *sql.Rows) (*tasks.APITask, error
 		&lastModifiedStr,
 	)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrTaskNotFound
+		}
+		return nil, fmt.Errorf("failed to scan task row: %w", err)
 	}
-
-	if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
-		return nil, fmt.Errorf("failed to parse timestamps: %w", err)
-	}
-
-	return &task, nil
-}
-
-// scanTaskFromRow scans a task from a single database row
-func (r *apiSnapshotsRepository) scanTaskFromRow(row *sql.Row) (*tasks.APITask, error) {
-	var task tasks.APITask
-	var dueStr, lastModifiedStr string
-
-	err := row.Scan(
-		&task.APIID,
-		&task.Title,
-		&task.Description,
-		&dueStr,
-		&task.Completed,
-		&lastModifiedStr,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
 		return nil, fmt.Errorf("failed to parse timestamps: %w", err)
 	}

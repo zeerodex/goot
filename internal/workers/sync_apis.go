@@ -22,7 +22,7 @@ func processMissingAPITasks(atasks, ltasks tasks.Tasks, api apis.API, repo repos
 
 		ltasks = append(ltasks, task)
 
-		err = repo.UpdateGoogleID(task.ID, task.GoogleID)
+		err = repo.UpdateTaskAPIID(task.ID, task.GoogleID, "gtasks")
 		if err != nil {
 			return fmt.Errorf("failed to update Google ID '%s' of task ID %d: %w", task.GoogleID, task.ID, err)
 		}

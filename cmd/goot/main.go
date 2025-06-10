@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	cfg, err := config.LoadConfig("internal/config")
+	cfg, err := config.LoadConfig("./")
 	if err != nil {
 		log.Fatalf("Unable to load config: %v", err)
 	}
