@@ -2,216 +2,220 @@ package repositories
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/zeerodex/goot/internal/models"
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
 type SnapshotsRepo interface {
-	CreateTask(task *tasks.APITask) (*tasks.APITask, error)
-	GetAllTasks() (tasks.APITasks, error)
-	GetTaskByID(id string) (*tasks.APITask, error)
-	UpdateTask(task *tasks.APITask) (*tasks.APITask, error)
-	DeleteTaskByID(id string) error
+	CreateSnapshotForAPI(apiName string, tasks tasks.APITasks) error
 }
 
 type snapshotsRepo struct {
-	apiName   string
-	tableName string
-	db        *sql.DB
+	db *sql.DB
 }
 
-func NewAPISnapshotsRepository(apiName string, db *sql.DB) SnapshotsRepo {
-	if db == nil {
-		panic("database connection cannot be nil")
-	}
-	if apiName == "" {
-		panic("API name cannot be empty")
-	}
-
+func NewAPISnapshotsRepository(db *sql.DB) SnapshotsRepo {
 	return &snapshotsRepo{
-		apiName:   apiName,
-		tableName: apiName + "_snapshots",
-		db:        db,
+		db: db,
 	}
 }
 
-func (r *snapshotsRepo) CreateTask(task *tasks.APITask) (*tasks.APITask, error) {
-	if task == nil {
-		return nil, errors.New("task cannot be nil")
-	}
-
-	query := fmt.Sprintf(`
-		INSERT INTO %s (api_id, title, description, due, completed, last_modified) 
-		VALUES (?, ?, ?, ?, ?, ?)`, r.tableName)
+func (r *snapshotsRepo) CreateSnapshotForAPI(apiName string, tasks tasks.APITasks) error {
+	query := `INSERT INTO snapshots (api, timestamp, data) VALUES (?, ?, ?)`
 
 	stmt, err := r.db.Prepare(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare create task statement: %w", err)
+		return fmt.Errorf("failed to prepare create task statement: %w", err)
 	}
 	defer stmt.Close()
 
-	now := time.Now().UTC()
+	jsonData, err := json.Marshal(tasks)
+	if err != nil {
+		return fmt.Errorf("error marshaling json: %w", err)
+	}
+
 	_, err = stmt.Exec(
-		task.APIID,
-		task.Title,
-		task.Description,
-		task.Due.Format(time.RFC3339),
-		task.Completed,
-		now.Format(time.RFC3339),
+		apiName,
+		time.Now().UTC().Format(time.RFC3339),
+		string(jsonData),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create task '%s': %w", task.Title, err)
-	}
-
-	return task, nil
-}
-
-func (r *snapshotsRepo) GetAllTasks() (tasks.APITasks, error) {
-	query := fmt.Sprintf(`
-		SELECT id, api_id, title, description, due, completed, last_modified 
-		FROM %s 
-		ORDER BY completed ASC, due ASC`, r.tableName)
-
-	rows, err := r.db.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query all tasks: %w", err)
-	}
-	defer rows.Close()
-
-	var tasksList tasks.APITasks
-	for rows.Next() {
-		task, err := r.scanAPITask(rows)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
-		}
-		tasksList = append(tasksList, *task)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating task rows: %w", err)
-	}
-
-	return tasksList, nil
-}
-
-func (r *snapshotsRepo) GetTaskByID(id string) (*tasks.APITask, error) {
-	if id == "" {
-		return nil, errors.New("task ID cannot be empty")
-	}
-
-	query := fmt.Sprintf(`
-		SELECT id, api_id, title, description, due, completed, last_modified 
-		FROM %s 
-		WHERE id = ?`, r.tableName)
-
-	row := r.db.QueryRow(query, id)
-	task, err := r.scanAPITask(row)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrTaskNotFound
-		}
-		return nil, fmt.Errorf("failed to get task by ID '%s': %w", id, err)
-	}
-
-	return task, nil
-}
-
-func (r *snapshotsRepo) UpdateTask(task *tasks.APITask) (*tasks.APITask, error) {
-	if task == nil {
-		return nil, errors.New("task cannot be nil")
-	}
-	if task.APIID == "" {
-		return nil, errors.New("task API ID cannot be empty")
-	}
-
-	query := fmt.Sprintf(`
-		UPDATE %s 
-		SET title = ?, description = ?, due = ?, completed = ?, last_modified = ? 
-		WHERE api_id = ?`, r.tableName)
-
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare update task statement: %w", err)
-	}
-	defer stmt.Close()
-
-	now := time.Now().UTC()
-	result, err := stmt.Exec(
-		task.Title,
-		task.Description,
-		task.Due.Format(time.RFC3339),
-		task.Completed,
-		now.Format(time.RFC3339),
-		task.APIID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update task '%s': %w", task.Title, err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get affected rows count: %w", err)
-	}
-	if rowsAffected == 0 {
-		return nil, ErrTaskNotFound
-	}
-
-	return task, nil
-}
-
-func (r *snapshotsRepo) DeleteTaskByID(id string) error {
-	if id == "" {
-		return errors.New("task ID cannot be empty")
-	}
-
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", r.tableName)
-
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return fmt.Errorf("failed to prepare delete task statement: %w", err)
-	}
-	defer stmt.Close()
-
-	result, err := stmt.Exec(id)
-	if err != nil {
-		return fmt.Errorf("failed to delete task with ID '%s': %w", id, err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get affected rows count: %w", err)
-	}
-	if rowsAffected == 0 {
-		return ErrTaskNotFound
+		return fmt.Errorf("failed to create snapshot: %w", err)
 	}
 
 	return nil
 }
 
-func (r *snapshotsRepo) scanAPITask(rows scanner) (*tasks.APITask, error) {
-	var task tasks.APITask
-	var dueStr, lastModifiedStr string
+//
+// func (r *snapshotsRepo) GetLastSnapshot() (tasks.APITasks, error) {
+// 	query := `SELECT api, timestamp, data FROM snapshots`
+//
+// 	rows, err := r.db.Query(query)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to query all tasks: %w", err)
+// 	}
+// 	defer rows.Close()
+//
+// 	var snapshot models.Snapshot
+// 	for rows.Next() {
+// 		task, err := r.scanAPITask(rows)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to scan task: %w", err)
+// 		}
+// 		tasksList = append(tasksList, *task)
+// 	}
+//
+// 	if err := rows.Err(); err != nil {
+// 		return nil, fmt.Errorf("error iterating task rows: %w", err)
+// 	}
+//
+// 	return tasksList, nil
+// }
 
+func (r *snapshotsRepo) GetLastSnapshot() (*models.Snapshot, error) {
+	query := `SELECT api, timestamp, data FROM snapshots ORDER BY timestamp`
+
+	row := r.db.QueryRow(query)
+	snapshot, err := r.scanSnapshot(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrTaskNotFound
+		}
+		return nil, fmt.Errorf("failed to get last snapshot: %w", err)
+	}
+
+	return snapshot, nil
+}
+
+// func (r *snapshotsRepo) UpdateTask(task *tasks.APITask) (*tasks.APITask, error) {
+// 	if task == nil {
+// 		return nil, errors.New("task cannot be nil")
+// 	}
+// 	if task.APIID == "" {
+// 		return nil, errors.New("task API ID cannot be empty")
+// 	}
+//
+// 	query := fmt.Sprintf(`
+// 		UPDATE %s
+// 		SET title = ?, description = ?, due = ?, completed = ?, last_modified = ?
+// 		WHERE api_id = ?`, r.tableName)
+//
+// 	stmt, err := r.db.Prepare(query)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to prepare update task statement: %w", err)
+// 	}
+// 	defer stmt.Close()
+//
+// 	now := time.Now().UTC()
+// 	result, err := stmt.Exec(
+// 		task.Title,
+// 		task.Description,
+// 		task.Due.Format(time.RFC3339),
+// 		task.Completed,
+// 		now.Format(time.RFC3339),
+// 		task.APIID,
+// 	)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to update task '%s': %w", task.Title, err)
+// 	}
+//
+// 	rowsAffected, err := result.RowsAffected()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get affected rows count: %w", err)
+// 	}
+// 	if rowsAffected == 0 {
+// 		return nil, ErrTaskNotFound
+// 	}
+//
+// 	return task, nil
+// }
+//
+// func (r *snapshotsRepo) DeleteTaskByID(id string) error {
+// 	if id == "" {
+// 		return errors.New("task ID cannot be empty")
+// 	}
+//
+// 	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", r.tableName)
+//
+// 	stmt, err := r.db.Prepare(query)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to prepare delete task statement: %w", err)
+// 	}
+// 	defer stmt.Close()
+//
+// 	result, err := stmt.Exec(id)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to delete task with ID '%s': %w", id, err)
+// 	}
+//
+// 	rowsAffected, err := result.RowsAffected()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get affected rows count: %w", err)
+// 	}
+// 	if rowsAffected == 0 {
+// 		return ErrTaskNotFound
+// 	}
+//
+// 	return nil
+// }
+
+func (r *snapshotsRepo) scanSnapshot(rows scanner) (*models.Snapshot, error) {
+	var snapshot models.Snapshot
+
+	var data, timestamp string
 	err := rows.Scan(
-		&task.APIID,
-		&task.Title,
-		&task.Description,
-		&dueStr,
-		&task.Completed,
-		&lastModifiedStr,
+		&snapshot.API,
+		&timestamp,
+		&data,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrTaskNotFound
 		}
-		return nil, fmt.Errorf("failed to scan task row: %w", err)
-	}
-	if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
-		return nil, fmt.Errorf("failed to parse timestamps: %w", err)
+		return nil, fmt.Errorf("failed to scan row: %w", err)
 	}
 
-	return &task, nil
+	snapshot.Timestamp, err = time.Parse(time.RFC3339, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+
+	var tasks tasks.APITasks
+	err = json.Unmarshal([]byte(data), &tasks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+	}
+	snapshot.Tasks = tasks
+
+	return &snapshot, nil
 }
+
+// func (r *snapshotsRepo) scanAPITask(rows scanner) (*tasks.APITask, error) {
+// 	var task tasks.APITask
+// 	var dueStr, lastModifiedStr string
+//
+// 	err := rows.Scan(
+// 		&task.APIID,
+// 		&task.Title,
+// 		&task.Description,
+// 		&dueStr,
+// 		&task.Completed,
+// 		&lastModifiedStr,
+// 	)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			return nil, ErrTaskNotFound
+// 		}
+// 		return nil, fmt.Errorf("failed to scan task row: %w", err)
+// 	}
+// 	if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
+// 		return nil, fmt.Errorf("failed to parse timestamps: %w", err)
+// 	}
+//
+// 	return &task, nil
+// }

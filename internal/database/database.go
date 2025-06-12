@@ -31,34 +31,16 @@ func InitDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to create tasks table: %w", err)
 	}
 
-	gtasksSnapshotsStmt := `
-	CREATE TABLE IF NOT EXISTS gtasks_snapshots (
-	id INTEGER PRIMARY KEY,
-	api_id TEXT,
-	title TEXT,
-	description TEXT,
-	due TEXT,
-	last_modified TEXT,
-	completed BOOl DEFAULT 0)`
+	snapshotsStmt := `
+	CREATE TABLE IF NOT EXISTS snapshots (
+    id INTEGER PRIMARY KEY,
+    api TEXT NOT NULL, 
+    timestamp TEXT NOT-NULL,
+    data TEXT NOT NULL)`
 
-	_, err = db.Exec(gtasksSnapshotsStmt)
+	_, err = db.Exec(snapshotsStmt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create gtasks_snapshots table: %w", err)
-	}
-
-	todoistSnapshotsStmt := `
-	CREATE TABLE IF NOT EXISTS todoist_snapshots (
-	id INTEGER PRIMARY KEY,
-	api_ID TEXT,
-	title TEXT,
-	description TEXT,
-	due TEXT,
-	last_modified TEXT,
-	completed BOOl DEFAULT 0)`
-
-	_, err = db.Exec(todoistSnapshotsStmt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create todoist_snapshots table: %w", err)
+		return nil, fmt.Errorf("failed to create snapshots table: %w", err)
 	}
 
 	return db, nil

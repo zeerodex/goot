@@ -8,9 +8,9 @@ import (
 )
 
 type Task struct {
-	ID           int `json:"id"`
-	GoogleID     string
-	TodoistID    string
+	ID           int       `json:"id,omitempty"`
+	GoogleID     string    `json:"google_id,omitempty"`
+	TodoistID    string    `json:"todoist_id,omitempty"`
 	Title        string    `json:"title"`
 	Description  string    `json:"description,omitempty"`
 	Due          time.Time `json:"due"`
@@ -21,12 +21,11 @@ type Task struct {
 }
 
 type APITask struct {
-	APIID        string
-	Title        string
-	Description  string
-	Due          time.Time
-	Completed    bool
-	LastModified time.Time
+	APIID       string    `json:"api_id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Due         time.Time `json:"due"`
+	Completed   bool      `json:"completed"`
 }
 
 type (
