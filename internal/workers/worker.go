@@ -143,6 +143,6 @@ func (w *Worker) processSetTaskCompletedOp(id int, completed bool) error {
 }
 
 func (w *Worker) processSyncTasksOp() error {
-	err := w.SyncAPITasks()
+	err := w.Sync()
 	return err
 }

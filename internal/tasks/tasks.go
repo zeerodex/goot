@@ -70,6 +70,26 @@ func (t Task) GTask() *gtasks.Task {
 	return &g
 }
 
+func (t *Task) GetAPIID(apiName string) string {
+	switch apiName {
+	case "gtasks":
+		return t.GoogleID
+	case "todoist":
+		return t.TodoistID
+	default:
+		return ""
+	}
+}
+
+func (t *Task) SetAPIID(apiName, apiId string) {
+	switch apiName {
+	case "gtasks":
+		t.GoogleID = apiId
+	case "todoist":
+		t.TodoistID = apiId
+	}
+}
+
 func (t Task) Task() string {
 	if t.Description != "" {
 		return fmt.Sprintf("ID:%d\n\tGoogle ID:%s\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n\tModified:%s\n\tDeleted:%t", t.ID, t.GoogleID, t.Title, t.Description, t.Due, t.Completed, t.LastModified, t.Deleted)
@@ -127,6 +147,10 @@ func (t Task) FullTitle() string {
 		title += " | Uncompleted"
 	}
 	return title
+}
+
+func (t Task) Equal(tt Task) bool {
+	return t.Title == tt.Title && t.Description == tt.Description && t.Due.Equal(tt.Due) && t.Completed == tt.Completed
 }
 
 type TasksList struct {

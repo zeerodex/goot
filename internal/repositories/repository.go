@@ -20,7 +20,6 @@ type TaskRepository interface {
 
 	GetAllTasks() (tasks.Tasks, error)
 	GetTaskByID(id int) (*tasks.Task, error)
-	GetTaskByGoogleID(id string) (*tasks.Task, error)
 	GetTaskByDue(due time.Time) (*tasks.Task, error)
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
 	GetAllDeletedTasks() (tasks.Tasks, error)
@@ -34,9 +33,12 @@ type TaskRepository interface {
 	DeleteTaskByID(id int) error
 	SoftDeleteTaskByID(id int) error
 	DeleteTaskByTitle(title string) error
+	DeleteAllTasks() error
 
 	SetTaskCompleted(id int, completed bool) error
 	MarkAsNotified(id int) error
+
+	DB() *sql.DB
 }
 
 type taskRepository struct {
@@ -45,6 +47,10 @@ type taskRepository struct {
 
 func NewTaskRepository(db *sql.DB) TaskRepository {
 	return &taskRepository{db: db}
+}
+
+func (r *taskRepository) DB() *sql.DB {
+	return r.db
 }
 
 func (r *taskRepository) scanTask(s scanner) (*tasks.Task, error) {
@@ -122,12 +128,6 @@ func (r *taskRepository) GetAllDeletedTasks() (tasks.Tasks, error) {
 
 func (r *taskRepository) GetTaskByID(id int) (*tasks.Task, error) {
 	query := fmt.Sprintf("%s WHERE id = ?", selectAllFields)
-	row := r.db.QueryRow(query, id)
-	return r.scanTask(row)
-}
-
-func (r *taskRepository) GetTaskByGoogleID(id string) (*tasks.Task, error) {
-	query := fmt.Sprintf("%s WHERE google_id = ?", selectAllFields)
 	row := r.db.QueryRow(query, id)
 	return r.scanTask(row)
 }
@@ -237,6 +237,10 @@ func (r *taskRepository) MarkAsNotified(id int) error {
 
 func (r *taskRepository) DeleteTaskByID(id int) error {
 	return r.execStatement("DELETE FROM tasks WHERE id = ?", id)
+}
+
+func (r *taskRepository) DeleteAllTasks() error {
+	return r.execStatement("DELETE FROM tasks")
 }
 
 func (r *taskRepository) SoftDeleteTaskByID(id int) error {

@@ -9,7 +9,7 @@ import (
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
-type APISnapshotsRepository interface {
+type SnapshotsRepo interface {
 	CreateTask(task *tasks.APITask) (*tasks.APITask, error)
 	GetAllTasks() (tasks.APITasks, error)
 	GetTaskByID(id string) (*tasks.APITask, error)
@@ -17,13 +17,13 @@ type APISnapshotsRepository interface {
 	DeleteTaskByID(id string) error
 }
 
-type apiSnapshotsRepository struct {
+type snapshotsRepo struct {
 	apiName   string
 	tableName string
 	db        *sql.DB
 }
 
-func NewAPISnapshotsRepository(apiName string, db *sql.DB) APISnapshotsRepository {
+func NewAPISnapshotsRepository(apiName string, db *sql.DB) SnapshotsRepo {
 	if db == nil {
 		panic("database connection cannot be nil")
 	}
@@ -31,14 +31,14 @@ func NewAPISnapshotsRepository(apiName string, db *sql.DB) APISnapshotsRepositor
 		panic("API name cannot be empty")
 	}
 
-	return &apiSnapshotsRepository{
+	return &snapshotsRepo{
 		apiName:   apiName,
 		tableName: apiName + "_snapshots",
 		db:        db,
 	}
 }
 
-func (r *apiSnapshotsRepository) CreateTask(task *tasks.APITask) (*tasks.APITask, error) {
+func (r *snapshotsRepo) CreateTask(task *tasks.APITask) (*tasks.APITask, error) {
 	if task == nil {
 		return nil, errors.New("task cannot be nil")
 	}
@@ -69,7 +69,7 @@ func (r *apiSnapshotsRepository) CreateTask(task *tasks.APITask) (*tasks.APITask
 	return task, nil
 }
 
-func (r *apiSnapshotsRepository) GetAllTasks() (tasks.APITasks, error) {
+func (r *snapshotsRepo) GetAllTasks() (tasks.APITasks, error) {
 	query := fmt.Sprintf(`
 		SELECT id, api_id, title, description, due, completed, last_modified 
 		FROM %s 
@@ -97,7 +97,7 @@ func (r *apiSnapshotsRepository) GetAllTasks() (tasks.APITasks, error) {
 	return tasksList, nil
 }
 
-func (r *apiSnapshotsRepository) GetTaskByID(id string) (*tasks.APITask, error) {
+func (r *snapshotsRepo) GetTaskByID(id string) (*tasks.APITask, error) {
 	if id == "" {
 		return nil, errors.New("task ID cannot be empty")
 	}
@@ -119,7 +119,7 @@ func (r *apiSnapshotsRepository) GetTaskByID(id string) (*tasks.APITask, error) 
 	return task, nil
 }
 
-func (r *apiSnapshotsRepository) UpdateTask(task *tasks.APITask) (*tasks.APITask, error) {
+func (r *snapshotsRepo) UpdateTask(task *tasks.APITask) (*tasks.APITask, error) {
 	if task == nil {
 		return nil, errors.New("task cannot be nil")
 	}
@@ -162,7 +162,7 @@ func (r *apiSnapshotsRepository) UpdateTask(task *tasks.APITask) (*tasks.APITask
 	return task, nil
 }
 
-func (r *apiSnapshotsRepository) DeleteTaskByID(id string) error {
+func (r *snapshotsRepo) DeleteTaskByID(id string) error {
 	if id == "" {
 		return errors.New("task ID cannot be empty")
 	}
@@ -191,7 +191,7 @@ func (r *apiSnapshotsRepository) DeleteTaskByID(id string) error {
 	return nil
 }
 
-func (r *apiSnapshotsRepository) scanAPITask(rows scanner) (*tasks.APITask, error) {
+func (r *snapshotsRepo) scanAPITask(rows scanner) (*tasks.APITask, error) {
 	var task tasks.APITask
 	var dueStr, lastModifiedStr string
 

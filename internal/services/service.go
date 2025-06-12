@@ -43,7 +43,7 @@ func NewTaskService(repo repositories.TaskRepository, cfg *config.Config) (TaskS
 		if api == "google" && enabled {
 			googleAPI, err := gtasksapi.NewGTasksApi(cfg.Google.ListId)
 			if err != nil {
-				return nil, fmt.Errorf("failed to enable Google API: %v", err)
+				return nil, fmt.Errorf("failed to initialize GTasks API: %v", err)
 			}
 			apisMap["gtasks"] = googleAPI
 		}
@@ -165,8 +165,8 @@ func (s *taskService) DeleteTaskByID(id int) error {
 	return nil
 }
 
-func (s *taskService) GetTaskGoogleID(id int) (string, error) {
-	return s.repo.GetTaskAPIID(id, "gtasks")
+func (s *taskService) GetTaskAPIID(id int, apiName string) (string, error) {
+	return s.repo.GetTaskAPIID(id, apiName)
 }
 
 func (s *taskService) MarkAsNotified(id int) error {
