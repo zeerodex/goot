@@ -20,6 +20,7 @@ const (
 	DeleteTaskOp       APIOperation = "delete_task"
 	SetTaskCompletedOp APIOperation = "set_task_completed"
 	SyncTasksOp        APIOperation = "sync_tasks"
+	CreateSnapshotsOp  APIOperation = "create_snapshots"
 )
 
 type APIJob struct {

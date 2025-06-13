@@ -3,6 +3,7 @@ package workers
 import (
 	"fmt"
 
+	"github.com/zeerodex/goot/internal/models"
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
@@ -13,16 +14,16 @@ func (w *Worker) Sync() error {
 	}
 
 	apisTasks := make(map[string]tasks.Tasks)
-	// var snapsTasks map[string]tasks.APITasks
+	var snapshots map[string]*models.Snapshot
 	for apiName, api := range w.apis {
 		apisTasks[apiName], err = api.GetAllTasks()
 		if err != nil {
 			return fmt.Errorf("failed to get all tasks from %s api: %w", apiName, err)
 		}
-		// snapsTasks[apiName], err = repositories.NewAPISnapshotsRepository(apiName, w.repo.DB()).GetAllTasks()
-		// if err != nil {
-		// 	return fmt.Errorf("failed to get all snapshot tasks from %s api snapshot: %w", apiName, err)
-		// }
+		snapshots[apiName], err = w.snapRepo.GetLastSnapshot(apiName)
+		if err != nil {
+			return fmt.Errorf("failed to get snapshot for %s api: %w", apiName, err)
+		}
 	}
 
 	if apisTasksEqual(apisTasks) {

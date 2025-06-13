@@ -11,21 +11,22 @@ import (
 	"github.com/zeerodex/goot/internal/tasks"
 )
 
-type SnapshotsRepo interface {
+type SnapshotsRepository interface {
 	CreateSnapshotForAPI(apiName string, tasks tasks.APITasks) error
+	GetLastSnapshot(apiName string) (*models.Snapshot, error)
 }
 
-type snapshotsRepo struct {
+type snapshotsRepository struct {
 	db *sql.DB
 }
 
-func NewAPISnapshotsRepository(db *sql.DB) SnapshotsRepo {
-	return &snapshotsRepo{
+func NewAPISnapshotsRepository(db *sql.DB) SnapshotsRepository {
+	return &snapshotsRepository{
 		db: db,
 	}
 }
 
-func (r *snapshotsRepo) CreateSnapshotForAPI(apiName string, tasks tasks.APITasks) error {
+func (r *snapshotsRepository) CreateSnapshotForAPI(apiName string, tasks tasks.APITasks) error {
 	query := `INSERT INTO snapshots (api, timestamp, data) VALUES (?, ?, ?)`
 
 	stmt, err := r.db.Prepare(query)
@@ -77,10 +78,10 @@ func (r *snapshotsRepo) CreateSnapshotForAPI(apiName string, tasks tasks.APITask
 // 	return tasksList, nil
 // }
 
-func (r *snapshotsRepo) GetLastSnapshot() (*models.Snapshot, error) {
-	query := `SELECT api, timestamp, data FROM snapshots ORDER BY timestamp`
+func (r *snapshotsRepository) GetLastSnapshot(apiName string) (*models.Snapshot, error) {
+	query := `SELECT api, timestamp, data FROM snapshots WHERE api = ? ORDER BY timestamp`
 
-	row := r.db.QueryRow(query)
+	row := r.db.QueryRow(query, apiName)
 	snapshot, err := r.scanSnapshot(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -164,7 +165,7 @@ func (r *snapshotsRepo) GetLastSnapshot() (*models.Snapshot, error) {
 // 	return nil
 // }
 
-func (r *snapshotsRepo) scanSnapshot(rows scanner) (*models.Snapshot, error) {
+func (r *snapshotsRepository) scanSnapshot(rows scanner) (*models.Snapshot, error) {
 	var snapshot models.Snapshot
 
 	var data, timestamp string

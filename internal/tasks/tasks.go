@@ -33,6 +33,24 @@ type (
 	APITasks []APITask
 )
 
+// HACK:
+func APITaskFromTask(task *Task, apiName string) APITask {
+	var apiId string
+	switch apiName {
+	case "gtasks":
+		apiId = task.GoogleID
+	case "todoist":
+		apiId = task.TodoistID
+	}
+	return APITask{
+		APIID:       apiId,
+		Title:       task.Title,
+		Description: task.Description,
+		Due:         task.Due,
+		Completed:   task.Completed,
+	}
+}
+
 func (tasks Tasks) FindByID(id int) (*Task, bool) {
 	for _, t := range tasks {
 		if t.ID == id {
@@ -126,11 +144,6 @@ func (t *APITask) SetDueAndLastModified(dueStr string, lastModifiedStr string) e
 		return err
 	}
 	t.Due = due
-	lastModified, err := time.Parse(time.RFC3339, lastModifiedStr)
-	if err != nil {
-		return err
-	}
-	t.LastModified = lastModified
 	return nil
 }
 

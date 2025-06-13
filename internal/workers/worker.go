@@ -2,6 +2,7 @@ package workers
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/zeerodex/goot/internal/apis"
@@ -14,8 +15,9 @@ type Worker struct {
 	jobQueue <-chan APIJob
 	resultCh chan<- APIJobResult
 
-	apis map[string]apis.API
-	repo repositories.TaskRepository
+	snapRepo repositories.SnapshotsRepository
+	apis     map[string]apis.API
+	repo     repositories.TaskRepository
 }
 
 func NewWorker(id int, jobChan <-chan APIJob, resChan chan<- APIJobResult, apis map[string]apis.API, repo repositories.TaskRepository) *Worker {
@@ -65,6 +67,8 @@ func (w *Worker) processAPIJob(job APIJob) APIJobResult {
 		err = w.processCreateTaskOp(job.Task)
 	case SyncTasksOp:
 		err = w.processSyncTasksOp()
+	case CreateSnapshotsOp:
+		err = w.processCreateSnapshotsOp()
 	}
 
 	res := APIJobResult{
@@ -145,4 +149,22 @@ func (w *Worker) processSetTaskCompletedOp(id int, completed bool) error {
 func (w *Worker) processSyncTasksOp() error {
 	err := w.Sync()
 	return err
+}
+
+func (w *Worker) processCreateSnapshotsOp() error {
+	for apiName, api := range w.apis {
+		atasks, err := api.GetAllTasks()
+		if err != nil {
+			return fmt.Errorf("failed to get all tasks from %s api: %w", apiName, err)
+		}
+		apiTasks := make(tasks.APITasks, len(atasks))
+		for i, atask := range atasks {
+			apiTasks[i] = tasks.APITaskFromTask(&atask, apiName)
+		}
+		err = w.snapRepo.CreateSnapshotForAPI(apiName, apiTasks)
+		if err != nil {
+			return fmt.Errorf("failed to create snapshot for %s api: %w", apiName, err)
+		}
+	}
+	return nil
 }
