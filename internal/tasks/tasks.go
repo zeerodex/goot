@@ -23,31 +23,9 @@ type Task struct {
 	LastModified time.Time
 }
 
-type APITask struct {
-	Source      string    `json:"source"`
-	APIID       string    `json:"api_id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Due         time.Time `json:"due"`
-	Completed   bool      `json:"completed"`
-}
-
 type (
-	Tasks    []Task
-	APITasks []APITask
+	Tasks []Task
 )
-
-// HACK:
-func APITaskFromTask(task *Task, apiName string) APITask {
-	return APITask{
-		Source:      apiName,
-		APIID:       task.APIIDs[apiName],
-		Title:       task.Title,
-		Description: task.Description,
-		Due:         task.Due,
-		Completed:   task.Completed,
-	}
-}
 
 func (tasks Tasks) FindByID(id int) (*Task, bool) {
 	for _, t := range tasks {
@@ -95,15 +73,6 @@ func (t *Task) SetDueAndLastModified(dueStr string, lastModifiedStr string) erro
 		return err
 	}
 	t.LastModified = lastModified
-	return nil
-}
-
-func (t *APITask) SetDueAndLastModified(dueStr string, lastModifiedStr string) error {
-	due, err := time.Parse(time.RFC3339, dueStr)
-	if err != nil {
-		return err
-	}
-	t.Due = due
 	return nil
 }
 

@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/zeerodex/goot/internal/models"
-	"github.com/zeerodex/goot/internal/tasks"
 )
 
 type SnapshotsRepository interface {
-	CreateSnapshotForAPI(apiName string, tasks tasks.APITasks) error
+	CreateSnapshotForAPI(apiName string, tasks []string) error
 	GetLastSnapshot(apiName string) (*models.Snapshot, error)
 }
 
@@ -26,8 +25,8 @@ func NewAPISnapshotsRepository(db *sql.DB) SnapshotsRepository {
 	}
 }
 
-func (r *snapshotsRepository) CreateSnapshotForAPI(apiName string, tasks tasks.APITasks) error {
-	query := `INSERT INTO snapshots (api, timestamp, data) VALUES (?, ?, ?)`
+func (r *snapshotsRepository) CreateSnapshotForAPI(apiName string, ids []string) error {
+	query := `INSERT INTO snapshots (api, timestamp, api_ids) VALUES (?, ?, ?)`
 
 	stmt, err := r.db.Prepare(query)
 	if err != nil {
@@ -35,7 +34,7 @@ func (r *snapshotsRepository) CreateSnapshotForAPI(apiName string, tasks tasks.A
 	}
 	defer stmt.Close()
 
-	jsonData, err := json.Marshal(tasks)
+	jsonIds, err := json.Marshal(ids)
 	if err != nil {
 		return fmt.Errorf("error marshaling json: %w", err)
 	}
@@ -43,7 +42,7 @@ func (r *snapshotsRepository) CreateSnapshotForAPI(apiName string, tasks tasks.A
 	_, err = stmt.Exec(
 		apiName,
 		time.Now().UTC().Format(time.RFC3339),
-		string(jsonData),
+		string(jsonIds),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot: %w", err)
@@ -79,7 +78,7 @@ func (r *snapshotsRepository) CreateSnapshotForAPI(apiName string, tasks tasks.A
 // }
 
 func (r *snapshotsRepository) GetLastSnapshot(apiName string) (*models.Snapshot, error) {
-	query := `SELECT api, timestamp, data FROM snapshots WHERE api = ? ORDER BY timestamp`
+	query := `SELECT api, timestamp, api_ids FROM snapshots WHERE api = ? ORDER BY timestamp`
 
 	row := r.db.QueryRow(query, apiName)
 	snapshot, err := r.scanSnapshot(row)
@@ -168,11 +167,11 @@ func (r *snapshotsRepository) GetLastSnapshot(apiName string) (*models.Snapshot,
 func (r *snapshotsRepository) scanSnapshot(rows scanner) (*models.Snapshot, error) {
 	var snapshot models.Snapshot
 
-	var data, timestamp string
+	var idsStr, timestamp string
 	err := rows.Scan(
 		&snapshot.API,
 		&timestamp,
-		&data,
+		&idsStr,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -186,12 +185,12 @@ func (r *snapshotsRepository) scanSnapshot(rows scanner) (*models.Snapshot, erro
 		return nil, fmt.Errorf("failed to parse timestamp: %w", err)
 	}
 
-	var tasks tasks.APITasks
-	err = json.Unmarshal([]byte(data), &tasks)
+	var ids []string
+	err = json.Unmarshal([]byte(idsStr), &ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
-	snapshot.Tasks = tasks
+	snapshot.IDs = ids
 
 	return &snapshot, nil
 }
