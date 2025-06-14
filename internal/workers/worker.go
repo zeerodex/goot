@@ -26,8 +26,9 @@ func NewWorker(id int, jobChan <-chan APIJob, resChan chan<- APIJobResult, apis 
 		jobQueue: jobChan,
 		resultCh: resChan,
 
-		apis: apis,
-		repo: repo,
+		snapRepo: repositories.NewAPISnapshotsRepository(repo.DB()),
+		apis:     apis,
+		repo:     repo,
 	}
 }
 
@@ -139,8 +140,7 @@ func (w *Worker) processSetTaskCompletedOp(id int, completed bool) error {
 }
 
 func (w *Worker) processSyncTasksOp() error {
-	// err := w.Sync()
-	return nil
+	return w.Sync()
 }
 
 func (w *Worker) processCreateSnapshotsOp() error {

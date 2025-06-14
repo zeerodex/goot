@@ -11,3 +11,5 @@ type Snapshot struct {
 	Timestamp time.Time
 	Tasks     tasks.APITasks
 }
+
+type Snapshots []Snapshot

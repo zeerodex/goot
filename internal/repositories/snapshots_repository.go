@@ -85,7 +85,7 @@ func (r *snapshotsRepository) GetLastSnapshot(apiName string) (*models.Snapshot,
 	snapshot, err := r.scanSnapshot(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrTaskNotFound
+			return nil, fmt.Errorf("no snapshots found")
 		}
 		return nil, fmt.Errorf("failed to get last snapshot: %w", err)
 	}

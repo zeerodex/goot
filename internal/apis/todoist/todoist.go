@@ -61,6 +61,7 @@ type Task struct {
 func (tt *Task) Task() *tasks.Task {
 	var t tasks.Task
 	t.APIIDs = make(map[string]string)
+	t.Source = tasks.Todoist
 	t.APIIDs[tasks.Todoist] = tt.ID
 	t.Title = tt.Content
 	t.Description = tt.Description

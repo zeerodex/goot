@@ -118,6 +118,7 @@ func (api *GTasksApi) SetTaskCompleted(id string, completed bool) error {
 
 func Task(g *gtasks.Task) *tasks.Task {
 	t := &tasks.Task{
+		Source:      tasks.GTasks,
 		Title:       g.Title,
 		Description: g.Notes,
 		Completed:   g.Status == "completed",

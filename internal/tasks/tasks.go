@@ -13,6 +13,7 @@ const (
 type Task struct {
 	ID           int
 	APIIDs       map[string]string
+	Source       string
 	Title        string
 	Description  string
 	Due          time.Time
