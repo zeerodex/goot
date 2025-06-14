@@ -107,10 +107,11 @@ func chooseTask(tasks tasks.Tasks, p string) (string, bool) {
 		var item item
 		item.title = task.FullTitle()
 		switch p {
-		case "gtasks":
-			item.id = task.GoogleID
 		case "tasks":
 			item.id = strconv.Itoa(task.ID)
+		default:
+			item.id = task.APIIDs[p]
+
 		}
 
 		items[i] = item

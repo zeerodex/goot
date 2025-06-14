@@ -3,24 +3,27 @@ package tasks
 import (
 	"fmt"
 	"time"
+)
 
-	gtasks "google.golang.org/api/tasks/v1"
+const (
+	Todoist = "todoist"
+	GTasks  = "gtasks"
 )
 
 type Task struct {
-	ID           int       `json:"id,omitempty"`
-	GoogleID     string    `json:"google_id,omitempty"`
-	TodoistID    string    `json:"todoist_id,omitempty"`
-	Title        string    `json:"title"`
-	Description  string    `json:"description,omitempty"`
-	Due          time.Time `json:"due"`
-	Completed    bool      `json:"status"`
-	Notified     bool      `json:"notified"`
-	Deleted      bool      `json:"deleted"`
-	LastModified time.Time `json:"last_modified"`
+	ID           int
+	APIIDs       map[string]string
+	Title        string
+	Description  string
+	Due          time.Time
+	Completed    bool
+	Notified     bool
+	Deleted      bool
+	LastModified time.Time
 }
 
 type APITask struct {
+	Source      string    `json:"source"`
 	APIID       string    `json:"api_id"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
@@ -35,15 +38,9 @@ type (
 
 // HACK:
 func APITaskFromTask(task *Task, apiName string) APITask {
-	var apiId string
-	switch apiName {
-	case "gtasks":
-		apiId = task.GoogleID
-	case "todoist":
-		apiId = task.TodoistID
-	}
 	return APITask{
-		APIID:       apiId,
+		Source:      apiName,
+		APIID:       task.APIIDs[apiName],
 		Title:       task.Title,
 		Description: task.Description,
 		Due:         task.Due,
@@ -60,58 +57,20 @@ func (tasks Tasks) FindByID(id int) (*Task, bool) {
 	return nil, false
 }
 
-func (tasks Tasks) FindTaskByGoogleID(googleId string) (*Task, bool) {
+func (tasks Tasks) FindTaskByAPIID(apiId string, apiName string) (*Task, bool) {
 	for _, t := range tasks {
-		if t.GoogleID == googleId {
+		if t.APIIDs[apiName] == apiId {
 			return &t, true
 		}
 	}
 	return nil, false
 }
 
-func (t Task) GTask() *gtasks.Task {
-	var g gtasks.Task
-	g.Title = t.Title
-	g.Notes = t.Description
-	g.Id = t.GoogleID
-	if t.Completed {
-		g.Status = "completed"
-	} else if !t.Completed {
-		g.Status = "needsAction"
-	}
-	if !t.Due.IsZero() {
-		g.Due = t.Due.Format(time.RFC3339)
-	} else {
-		g.Due = ""
-	}
-	return &g
-}
-
-func (t *Task) GetAPIID(apiName string) string {
-	switch apiName {
-	case "gtasks":
-		return t.GoogleID
-	case "todoist":
-		return t.TodoistID
-	default:
-		return ""
-	}
-}
-
-func (t *Task) SetAPIID(apiName, apiId string) {
-	switch apiName {
-	case "gtasks":
-		t.GoogleID = apiId
-	case "todoist":
-		t.TodoistID = apiId
-	}
-}
-
 func (t Task) Task() string {
 	if t.Description != "" {
-		return fmt.Sprintf("ID:%d\n\tGoogle ID:%s\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n\tModified:%s\n\tDeleted:%t", t.ID, t.GoogleID, t.Title, t.Description, t.Due, t.Completed, t.LastModified, t.Deleted)
+		return fmt.Sprintf("ID:%d\n\tAPI IDs :%v\n\tTitle: %s\n\tDescription:%s\n\tDue:%s\n\tCompleted:%t\n\tModified:%s\n\tDeleted:%t", t.ID, t.APIIDs, t.Title, t.Description, t.Due, t.Completed, t.LastModified, t.Deleted)
 	}
-	return fmt.Sprintf("ID:%d\n\tGoogle ID:%s\n\tTitle: %s\n\tDue:%s\n\tCompleted:%t\n\tModified:%s\n\tDeleted:%t", t.ID, t.GoogleID, t.Title, t.Due, t.Completed, t.LastModified, t.Deleted)
+	return fmt.Sprintf("ID:%d\n\tAPI IDs:%v\n\tTitle: %s\n\tDue:%s\n\tCompleted:%t\n\tModified:%s\n\tDeleted:%t", t.ID, t.APIIDs, t.Title, t.Due, t.Completed, t.LastModified, t.Deleted)
 }
 
 func (t *Task) DueStr() string {
@@ -164,11 +123,3 @@ func (t Task) FullTitle() string {
 func (t Task) Equal(tt Task) bool {
 	return t.Title == tt.Title && t.Description == tt.Description && t.Due.Equal(tt.Due) && t.Completed == tt.Completed
 }
-
-type TasksList struct {
-	ID       string
-	GoogleID string
-	Title    string
-}
-
-type TasksLists []TasksList

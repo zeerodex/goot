@@ -16,9 +16,8 @@ func InitDB() (*sql.DB, error) {
 	stmt := `
 	CREATE TABLE IF NOT EXISTS tasks (
 	id INTEGER PRIMARY KEY,
-	google_id TEXT,
-	todoist_id TEXT,
-	title TEXT,
+	api_ids TEXT,
+	title TEXT NOT NULL,
 	description TEXT,
 	due TEXT,
 	last_modified TEXT,
@@ -35,7 +34,7 @@ func InitDB() (*sql.DB, error) {
 	CREATE TABLE IF NOT EXISTS snapshots (
     id INTEGER PRIMARY KEY,
     api TEXT NOT NULL, 
-    timestamp TEXT NOT-NULL,
+    timestamp TEXT NOT NULL,
     data TEXT NOT NULL)`
 
 	_, err = db.Exec(snapshotsStmt)

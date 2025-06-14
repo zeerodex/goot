@@ -60,7 +60,8 @@ type Task struct {
 
 func (tt *Task) Task() *tasks.Task {
 	var t tasks.Task
-	t.TodoistID = tt.ID
+	t.APIIDs = make(map[string]string)
+	t.APIIDs[tasks.Todoist] = tt.ID
 	t.Title = tt.Content
 	t.Description = tt.Description
 	t.Due, _ = timeutil.Parse(tt.Due.Date)
@@ -76,7 +77,7 @@ func (tt *Task) Task() *tasks.Task {
 
 func TodoistTask(t *tasks.Task) *Task {
 	var tt Task
-	t.TodoistID = tt.ID
+	t.APIIDs[tasks.Todoist] = tt.ID
 	tt.Content = t.Title
 	tt.Description = t.Description
 	tt.Due.Date = t.Due.Format(time.RFC3339)
@@ -148,8 +149,6 @@ func (c TodoistAPI) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 		return nil, fmt.Errorf("error encoding json: %w", err)
 	}
 
-	task.TodoistID = tt.ID
-
 	return tt.Task(), nil
 }
 
@@ -208,8 +207,8 @@ func (TodoistAPI) GetAllTasksWithDeleted() (_ tasks.Tasks, _ error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (c *TodoistAPI) PatchTask(task *tasks.Task) (*tasks.Task, error) {
-	resp, err := c.makeRequest("POST", fmt.Sprintf("/tasks/%s", task.TodoistID), newTaskCU(task))
+func (c *TodoistAPI) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
+	resp, err := c.makeRequest("POST", fmt.Sprintf("/tasks/%s", task.APIIDs[tasks.Todoist]), newTaskCU(task))
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}

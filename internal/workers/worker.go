@@ -104,15 +104,7 @@ func (w *Worker) processCreateTaskOp(task *tasks.Task) error {
 			return err
 		}
 
-		var apiId string
-		switch apiName {
-		case "gtasks":
-			apiId = apiTask.GoogleID
-		case "todoist":
-			apiId = apiTask.TodoistID
-		}
-
-		err = w.repo.UpdateTaskAPIID(task.ID, apiId, apiName)
+		err = w.repo.UpdateTaskAPIID(task.ID, apiTask.APIIDs[apiName], apiName)
 		if err != nil {
 			return err
 		}
@@ -122,7 +114,7 @@ func (w *Worker) processCreateTaskOp(task *tasks.Task) error {
 
 func (w *Worker) processUpdateTaskOp(task *tasks.Task) error {
 	for _, api := range w.apis {
-		_, err := api.PatchTask(task)
+		_, err := api.UpdateTask(task)
 		if err != nil {
 			return err
 		}
@@ -147,8 +139,8 @@ func (w *Worker) processSetTaskCompletedOp(id int, completed bool) error {
 }
 
 func (w *Worker) processSyncTasksOp() error {
-	err := w.Sync()
-	return err
+	// err := w.Sync()
+	return nil
 }
 
 func (w *Worker) processCreateSnapshotsOp() error {

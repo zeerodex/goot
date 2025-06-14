@@ -55,11 +55,11 @@ func NewGTasksApi(listId string) (apis.API, error) {
 }
 
 func (api *GTasksApi) CreateTask(task *tasks.Task) (*tasks.Task, error) {
-	gtask, err := api.srv.Tasks.Insert(api.ListId, task.GTask()).Do()
+	gtask, err := api.srv.Tasks.Insert(api.ListId, GTask(task)).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task in list '%s': %w", api.ListId, err)
 	}
-	task.GoogleID = gtask.Id
+	task.APIIDs[tasks.GTasks] = gtask.Id
 	return task, nil
 }
 
@@ -68,19 +68,7 @@ func (api *GTasksApi) GetTaskByID(id string) (*tasks.Task, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve task '%s' from list '%s': %w", id, api.ListId, err)
 	}
-	return ConvertGTask(gtask), nil
-}
-
-func (api *GTasksApi) GetAllLists() (tasks.TasksLists, error) {
-	glists, err := api.srv.Tasklists.List().Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve all task lists: %w", err)
-	}
-	lists := make(tasks.TasksLists, len(glists.Items))
-	for i, glist := range glists.Items {
-		lists[i] = ConverGTasksList(glist)
-	}
-	return lists, nil
+	return Task(gtask), nil
 }
 
 func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
@@ -91,21 +79,7 @@ func (api *GTasksApi) GetAllTasks() (tasks.Tasks, error) {
 
 	tasksList := make(tasks.Tasks, len(gtasks.Items))
 	for i, task := range gtasks.Items {
-		t := ConvertGTask(task)
-		tasksList[i] = *t
-	}
-	return tasksList, nil
-}
-
-func (api *GTasksApi) GetAllTasksWithDeleted() (tasks.Tasks, error) {
-	gtasks, err := api.srv.Tasks.List(api.ListId).ShowDeleted(true).ShowCompleted(true).ShowHidden(true).Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve all tasks with deleted from list '%s': %w", api.ListId, err)
-	}
-
-	tasksList := make(tasks.Tasks, len(gtasks.Items))
-	for i, task := range gtasks.Items {
-		t := ConvertGTask(task)
+		t := Task(task)
 		tasksList[i] = *t
 	}
 	return tasksList, nil
@@ -119,12 +93,12 @@ func (api *GTasksApi) DeleteTaskByID(id string) error {
 	return nil
 }
 
-func (api *GTasksApi) PatchTask(task *tasks.Task) (*tasks.Task, error) {
-	g, err := api.srv.Tasks.Patch(api.ListId, task.GoogleID, task.GTask()).Do()
+func (api *GTasksApi) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
+	g, err := api.srv.Tasks.Patch(api.ListId, task.APIIDs[tasks.GTasks], GTask(task)).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to patch task '%s' from list '%s': %w", task.GoogleID, api.ListId, err)
+		return nil, fmt.Errorf("failed to patch task '%s' from list '%s': %w", task.APIIDs[tasks.GTasks], api.ListId, err)
 	}
-	return ConvertGTask(g), nil
+	return Task(g), nil
 }
 
 func (api *GTasksApi) SetTaskCompleted(id string, completed bool) error {
@@ -142,14 +116,15 @@ func (api *GTasksApi) SetTaskCompleted(id string, completed bool) error {
 	return nil
 }
 
-func ConvertGTask(g *gtasks.Task) *tasks.Task {
+func Task(g *gtasks.Task) *tasks.Task {
 	t := &tasks.Task{
-		GoogleID:    g.Id,
 		Title:       g.Title,
 		Description: g.Notes,
 		Completed:   g.Status == "completed",
 		Deleted:     g.Deleted,
 	}
+	t.APIIDs = make(map[string]string)
+	t.APIIDs[tasks.GTasks] = g.Id
 	if g.Due != "" {
 		t.Due, _ = time.Parse(time.RFC3339, g.Due)
 	}
@@ -164,8 +139,20 @@ func ConvertGTask(g *gtasks.Task) *tasks.Task {
 	return t
 }
 
-func ConverGTasksList(g *gtasks.TaskList) (t tasks.TasksList) {
-	t.Title = g.Title
-	t.GoogleID = g.Id
-	return t
+func GTask(t *tasks.Task) *gtasks.Task {
+	var g gtasks.Task
+	g.Title = t.Title
+	g.Notes = t.Description
+	g.Id = t.APIIDs[tasks.GTasks]
+	if t.Completed {
+		g.Status = "completed"
+	} else if !t.Completed {
+		g.Status = "needsAction"
+	}
+	if !t.Due.IsZero() {
+		g.Due = t.Due.Format(time.RFC3339)
+	} else {
+		g.Due = ""
+	}
+	return &g
 }

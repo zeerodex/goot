@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -24,7 +25,6 @@ type TaskRepository interface {
 	GetAllPendingTasks(minTime, maxTime time.Time) (tasks.Tasks, error)
 	GetAllDeletedTasks() (tasks.Tasks, error)
 
-	GetTaskIDByGoogleID(googleId string) (int, error)
 	GetTaskAPIID(id int, apiName string) (string, error)
 
 	UpdateTask(task *tasks.Task) (*tasks.Task, error)
@@ -56,8 +56,9 @@ func (r *taskRepository) DB() *sql.DB {
 func (r *taskRepository) scanTask(s scanner) (*tasks.Task, error) {
 	var task tasks.Task
 	var dueStr, lastModifiedStr string
+	var apiIDsJSONStr string
 	err := s.Scan(
-		&task.ID, &task.GoogleID, &task.TodoistID, &task.Title,
+		&task.ID, &apiIDsJSONStr, &task.Title,
 		&task.Description, &dueStr, &task.Completed, &task.Notified,
 		&lastModifiedStr, &task.Deleted,
 	)
@@ -67,6 +68,12 @@ func (r *taskRepository) scanTask(s scanner) (*tasks.Task, error) {
 		}
 		return nil, fmt.Errorf("failed to scan task row: %w", err)
 	}
+
+	err = json.Unmarshal([]byte(apiIDsJSONStr), &task.APIIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal APIIds: %w", err)
+	}
+
 	if err := task.SetDueAndLastModified(dueStr, lastModifiedStr); err != nil {
 		return nil, fmt.Errorf("failed to parse time strings: %w", err)
 	}
@@ -96,11 +103,17 @@ func (r *taskRepository) findTasks(query string, args ...any) (tasks.Tasks, erro
 }
 
 func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
-	query := "INSERT INTO tasks (google_id, todoist_id, title, description, due, completed, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?)"
+	query := "INSERT INTO tasks (api_ids, title, description, due, completed, last_modified) VALUES (?, ?, ?, ?, ?, ?)"
 	now := time.Now().UTC().Format(time.RFC3339)
 	due := task.Due.Format(time.RFC3339)
 
-	res, err := r.db.Exec(query, task.GoogleID, task.TodoistID, task.Title, task.Description, due, task.Completed, now)
+	task.APIIDs = make(map[string]string)
+	apiIDsJSON, err := json.Marshal(task.APIIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal APIIDs: %w", err)
+	}
+
+	res, err := r.db.Exec(query, string(apiIDsJSON), task.Title, task.Description, due, task.Completed, now)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute create task statement: %w", err)
 	}
@@ -114,7 +127,7 @@ func (r *taskRepository) CreateTask(task *tasks.Task) (*tasks.Task, error) {
 	return task, nil
 }
 
-const selectAllFields = "SELECT id, google_id, todoist_id, title, description, due, completed, notified, last_modified, deleted FROM tasks"
+const selectAllFields = "SELECT id, api_ids, title, description, due, completed, notified, last_modified, deleted FROM tasks"
 
 func (r *taskRepository) GetAllTasks() (tasks.Tasks, error) {
 	query := fmt.Sprintf("%s WHERE deleted = 0 ORDER BY completed, due", selectAllFields)
@@ -143,44 +156,19 @@ func (r *taskRepository) GetTaskByDue(due time.Time) (*tasks.Task, error) {
 	return r.scanTask(row)
 }
 
-func (r *taskRepository) GetTaskIDByGoogleID(googleId string) (int, error) {
-	if googleId == "" {
-		return 0, errors.New("google ID cannot be empty")
-	}
-	var id int
-	err := r.db.QueryRow("SELECT id FROM tasks WHERE google_id = ?", googleId).Scan(&id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, fmt.Errorf("task with Google ID '%s' not found: %w", googleId, ErrTaskNotFound)
-		}
-		return 0, fmt.Errorf("failed to get ID by Google ID '%s': %w", googleId, err)
-	}
-	return id, nil
-}
-
 func (r *taskRepository) GetTaskAPIID(id int, apiName string) (string, error) {
-	var fieldName string
-	switch apiName {
-	case "todoist":
-		fieldName = "todoist_id"
-	case "gtasks":
-		fieldName = "google_id"
-	default:
-		return "", fmt.Errorf("unsupported api name: %s", apiName)
-	}
+	jsonPath := fmt.Sprintf("$.%s", apiName)
 
-	query := fmt.Sprintf("SELECT %s FROM tasks WHERE id = ?", fieldName)
-	var apiId sql.NullString
-	if err := r.db.QueryRow(query, id).Scan(&apiId); err != nil {
+	query := "SELECT json_extract(api_ids, ?) FROM tasks WHERE id = ?"
+
+	var apiIDsJSONStr string
+	if err := r.db.QueryRow(query, jsonPath, id).Scan(&apiIDsJSONStr); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrTaskNotFound
 		}
 		return "", fmt.Errorf("failed to scan api id row: %w", err)
 	}
-	if !apiId.Valid {
-		return "", fmt.Errorf("%s is NULL for task id %d", fieldName, id)
-	}
-	return apiId.String, nil
+	return apiIDsJSONStr, nil
 }
 
 // execStatement is a helper for UPDATE, DELETE, and other statements that don't return rows.
@@ -200,11 +188,16 @@ func (r *taskRepository) execStatement(query string, args ...any) error {
 }
 
 func (r *taskRepository) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
-	query := "UPDATE tasks SET google_id = ?, todoist_id = ?, title = ?, description = ?, due = ?, completed = ?, notified = ?, last_modified = ? WHERE id = ?"
+	query := "UPDATE tasks SET api_ids= ?, title = ?, description = ?, due = ?, completed = ?, notified = ?, last_modified = ? WHERE id = ?"
 	now := time.Now().UTC().Format(time.RFC3339)
 	due := task.Due.Format(time.RFC3339)
 
-	err := r.execStatement(query, task.GoogleID, task.TodoistID, task.Title, task.Description, due, task.Completed, task.Notified, now, task.ID)
+	apiIDsJSON, err := json.Marshal(task.APIIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal APIIDs: %w", err)
+	}
+
+	err = r.execStatement(query, string(apiIDsJSON), task.Title, task.Description, due, task.Completed, task.Notified, now, task.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -212,17 +205,9 @@ func (r *taskRepository) UpdateTask(task *tasks.Task) (*tasks.Task, error) {
 }
 
 func (r *taskRepository) UpdateTaskAPIID(id int, apiId string, apiName string) error {
-	var fieldName string
-	switch apiName {
-	case "todoist":
-		fieldName = "todoist_id"
-	case "gtasks":
-		fieldName = "google_id"
-	default:
-		return fmt.Errorf("unsupported api name: %s", apiName)
-	}
-	query := fmt.Sprintf("UPDATE tasks SET %s = ?, last_modified = ? WHERE id = ?", fieldName)
-	return r.execStatement(query, apiId, time.Now().UTC().Format(time.RFC3339), id)
+	jsonPath := fmt.Sprintf("$.%s", apiName)
+	query := "UPDATE tasks SET api_ids = json_set(api_ids, ?, ?), last_modified = ? WHERE id = ?"
+	return r.execStatement(query, jsonPath, apiId, time.Now().UTC().Format(time.RFC3339), id)
 }
 
 func (r *taskRepository) SetTaskCompleted(id int, completed bool) error {

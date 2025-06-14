@@ -55,7 +55,7 @@ func generateRandomState() string {
 
 func (h *OAuthHandler) GetClient() (*http.Client, error) {
 	tok, err := h.tokenFromFile(h.tokFile)
-	if err != nil || !tok.Valid() {
+	if err != nil {
 		apiName, _ := strings.CutSuffix(h.tokFile, "_token.json")
 		fmt.Printf("No token found or token invalid for %s api.\n", apiName)
 		tok, err = h.getTokenFromWeb(h.config)
